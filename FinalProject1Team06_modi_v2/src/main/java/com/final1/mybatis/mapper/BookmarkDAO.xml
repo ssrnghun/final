@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.final1.logic.IBookmarkDAO">
+
+	<!-- id = "해당 메소드명" resultType="반환데이터타입"-->
+	<!-- 북마크 조회 -->
+	<select id="select" resultType="java.lang.Integer">
+		SELECT COUNT(*)
+		FROM BOOKMARK
+		WHERE MEM_NUM = (SELECT MEM_NUM
+	                	 FROM MEMBER
+	                 	 WHERE ID_NUM = #{idNum}) AND ROOM_NUM = #{roomNum}
+	</select>
+		
+	
+	<!-- 북마크 추가 -->
+	<insert id="add">
+	INSERT INTO BOOKMARK(BOOKMARK_NUM, ROOM_NUM, MEM_NUM, BOOKMARK_DATE)
+	VALUES(CONCAT('MARK-', LPAD(BOOKMARK_SEQ.NEXTVAL, 5, 0)), #{roomNum}, (SELECT MEM_NUM FROM MEMBER WHERE ID_NUM = #{idNum}), SYSDATE)
+	</insert>
+	
+	<!-- 북마크 삭제  -->	
+	<delete id="remove">
+	DELETE 
+	FROM BOOKMARK
+	WHERE MEM_NUM = (SELECT MEM_NUM
+      				 FROM MEMBER
+                     WHERE ID_NUM = #{idNum}) AND ROOM_NUM = #{roomNum}
+	</delete>	
+	<!-- 자신의 북마크 조회(마이페이지)   혜서 추가 ★ -->
+	<select id="list" resultType="com.final1.logic.RoomListDTO">
+		SELECT TO_CHAR(B.TRIP_START_DATE,'YYYY-MM-DD') AS TRIP_START_DATE
+     ,  TO_CHAR(B.TRIP_END_DATE,'YYYY-MM-DD') AS TRIP_END_DATE
+     , (SELECT CONTENT
+        FROM PLAN_ONOFF
+        WHERE PLAN_ONOFF_NUM = B.PLAN_ONOFF_NUM) AS PLAN_ONOFF
+	     , B.ROOM_TITLE AS room_title
+	     , B.BUDGET AS budget
+	     , R.BOOKMARK_DATE AS BOOKMARK_DATE
+	     ,(SELECT NAME
+	        FROM REGION
+	       WHERE REGION_NUM = B.REGION_NUM) AS REGION
+	      , B.MEM_MAX AS MEM_MAX
+          , NVL(A.INWON,0) AS mem_curr
+          , B.ROOM_NUM AS ROOM_NUM
+		 FROM  MEMBER M JOIN BOOKMARK R
+		ON M.MEM_NUM = R.MEM_NUM
+        JOIN BUILD_ROOM B
+        ON B.ROOM_NUM = R.ROOM_NUM
+        JOIN(SELECT ROOM_NUM AS 방번호, COUNT(ROOM_NUM) AS INWON                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
+		          FROM MEM_JOIN MJ JOIN ONGOING OG
+                  ON mj.mem_join_num = OG.MEM_JOIN_NUM
+		          GROUP BY ROOM_NUM) A
+		ON B.ROOM_NUM = A.방번호
+        WHERE M.ID_NUM IN
+		(
+		    SELECT ID_NUM
+		    FROM MEMBER M
+		    WHERE ID_NUM= (SELECT ID_NUM
+		                    FROM MEM_REGI
+		                    WHERE ID=#{id})
+		)
+		ORDER BY BOOKMARK_DATE DESC
+	</select>
+	
+</mapper>

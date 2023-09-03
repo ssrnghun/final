@@ -1,0 +1,35 @@
+@charset "UTF-8";
+
+/* 일차태그*/
+#myTab
+{
+	border: solid green;
+}
+
+.dayTab
+{
+	border: 1px solid pink !important;
+}
+
+/*장소추가, 메모추가 버튼*/
+.buttonContainer
+{
+  	text-align: center;
+}
+
+/* 스케쥴본문 */
+#wholeSched
+{
+	border: solid black;
+}
+
+/* 일정추가 */
+.SingleSc
+{
+	border: solid red;
+}
+/*노트추가*/
+.SingleMm
+{
+	border: solid blue;
+}

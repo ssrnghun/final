@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.final1.logic.IRegionDAO">
+
+	<!-- id = "해당 메소드명" resultType="반환데이터타입"-->
+	<!-- 지역검색하여 기초자치단체 조회 -->
+	<select id="regionSearch" resultType="com.final1.logic.RegionDTO">
+		SELECT NAME AS REGIONNAME, REGION_NUM AS REGION_NUM
+		FROM REGION
+		WHERE NAME LIKE '%'||#{keyword}||'%'
+	</select>
+	
+	
+	
+</mapper>

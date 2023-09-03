@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.final1.logic.IFindDAO">
+
+	<select id="findId" resultType="java.lang.String">
+		SELECT ID
+		FROM MEM_REGI
+		WHERE ID_NUM = (SELECT ID_NUM 
+		                FROM MEMBER 
+		                WHERE SSN= #{ssn} AND NAME=#{name})
+	</select>
+	
+	<select id="findIdAdmin" resultType="java.lang.String">
+		SELECT ID
+		FROM MEM_REGI 
+		WHERE ID_NUM = (SELECT ID_NUM
+		                FROM ADMIN
+		                WHERE SSN = #{ssn} AND NAME = #{name})
+	</select>
+	
+	<select id="count" resultType="java.lang.Integer">
+		SELECT COUNT(*)
+		FROM MEM_REGI
+		WHERE ID_NUM = (SELECT ID_NUM 
+		                FROM MEMBER 
+		                WHERE SSN= #{ssn} AND NAME=#{name})
+	</select>
+	
+	<select id="adminCount" resultType="java.lang.Integer">
+		SELECT COUNT(*) AS COUNT
+		FROM MEM_REGI 
+		WHERE ID_NUM = (SELECT ID_NUM
+		                FROM ADMIN
+		                WHERE SSN = #{ssn} AND NAME = #{name})
+	</select>
+	
+	<select id="pwCount" resultType="java.lang.Integer">
+		SELECT COUNT(PW)
+		FROM MEMBER
+		WHERE SSN= #{ssn}
+		  AND ID_NUM=(SELECT ID_NUM 
+		              FROM MEM_REGI
+		              WHERE ID= #{id})
+	</select>
+	
+	<select id="pwCountAdmin" resultType="java.lang.Integer">
+		SELECT COUNT(PW)
+		FROM ADMIN
+		WHERE SSN= #{ssn}
+		  AND ID_NUM=(SELECT ID_NUM 
+		              FROM MEM_REGI
+		              WHERE ID= #{id})
+	</select>
+	
+	<update id="findUpdatePw">
+		UPDATE MEMBER
+		SET PW = CRYPTPACK.ENCRYPT(#{newPwd}, #{newPwd})
+		WHERE ID_NUM = (SELECT ID_NUM
+		                FROM MEM_REGI
+		                WHERE ID = #{hiddenId})
+		  AND SSN = #{hiddenSsn}
+	</update>
+	
+	<update id="findUpdatePwAdmin">
+		UPDATE ADMIN
+		SET PW = CRYPTPACK.ENCRYPT(#{newPwd}, #{newPwd})
+		WHERE ID_NUM = (SELECT ID_NUM
+		                FROM MEM_REGI
+		                WHERE ID = #{hiddenId})
+		  AND SSN = #{hiddenSsn}
+	</update>
+	
+
+</mapper>

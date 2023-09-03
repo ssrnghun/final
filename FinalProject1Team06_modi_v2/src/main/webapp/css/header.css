@@ -1,0 +1,35 @@
+@charset "UTF-8";
+.fw-bold
+{
+	margin-bottom: 5px;
+}
+
+#headerSection
+{
+	border: 5px solid black;
+	background-image: url("../images/headerImg2.jpeg");
+	position: relative;
+	/* overflow: auto; */
+	height: auto;
+}
+
+
+#fixedBox
+{
+	position:absolute;
+	bottom: 0px;	
+	background-color: pink;
+	width: 100%;
+	left: 0px; 
+	height: 30%;
+	float: left;
+	/* overflow: auto; */
+	
+}
+
+#optionBox
+{
+	margin-bottom: 110px;
+}
+
+

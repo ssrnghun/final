@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.final1.logic.IBlockDAO">
+<select id="blockList" resultType="com.final1.logic.blockDTO">
+	SELECT ROW_NUMBER() OVER(ORDER BY MB.BLOCK_DATE) AS NUM, M.NIKNAME as nikName, MB.BLOCK_DATE as blockDate, MB.REASON as reason
+	FROM MEM_BLOCK MB JOIN MEM_REGI MR
+	ON MB.BLOCKED_ID_NUM = MR.ID_NUM
+	JOIN (SELECT ID_NUM AS IDN, NIKNAME FROM MEMBER) M
+	ON M.IDN = MR.ID_NUM
+	JOIN MEM_REGI MR
+	ON MR.ID_NUM = M.IDN
+	WHERE MB.BLOCKER_ID_NUM= (SELECT ID_NUM
+	                        FROM MEM_REGI
+	                        WHERE ID=#{id})
+</select>
+<select id="count" resultType="Integer">
+	SELECT COUNT(*) AS COUNT
+	FROM MEM_BLOCK MB JOIN MEM_REGI MR
+	ON MB.BLOCKED_ID_NUM = MR.ID_NUM
+	JOIN (SELECT ID_NUM AS IDN, NIKNAME FROM MEMBER) M
+	ON M.IDN = MR.ID_NUM
+	JOIN MEM_REGI MR
+	ON MR.ID_NUM = M.IDN
+	WHERE MB.BLOCKER_ID_NUM= (SELECT ID_NUM
+		                        FROM MEM_REGI
+		                        WHERE ID=#{id})
+</select>
+
+<delete id="blockCancle">
+	DELETE 
+	FROM MEM_BLOCK
+	WHERE BLOCKER_ID_NUM= (SELECT ID_NUM
+	                        FROM MEM_REGI
+	                        WHERE ID=#{id})
+	    AND BLOCKED_ID_NUM = #{blockedId}
+</delete>
+</mapper>

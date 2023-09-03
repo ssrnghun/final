@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.final1.logic.IMyPageDAO">
+
+
+<select id="info" resultType="com.final1.logic.MyPageDTO" >
+	SELECT PHOTO as photo, NIKNAME as nikname, CASE WHEN SSN LIKE '_______2%' OR SSN LIKE '_______4%' THEN '여'
+									                WHEN SSN LIKE '_______1%' OR SSN LIKE '_______3%' THEN '남'
+									                ELSE '?'
+									           END AS GENDER
+		  ,introduce
+	FROM MEMBER
+	WHERE ID_NUM= (SELECT ID_NUM
+	                FROM MEM_REGI
+	                WHERE ID= #{id})
+</select>
+
+<select id="etiScore" resultType="com.final1.logic.MyPageDTO" >
+   <![CDATA[
+	SELECT NVL(ROUND(AVG(SCORE),1),0) AS etiScore, NVL(COUNT(SCORE),0) AS inwonEti 
+	FROM ETIQUETTE_SCORE ES JOIN MEM_REGI MR
+	ON ES.TAKE_ID_NUM = MR.ID_NUM 
+	WHERE ID_NUM = (SELECT ID_NUM FROM MEM_REGI WHERE ID=#{id}) AND SYSDATE-SCORE_DATE < 365
+	]]>
+</select>
+
+<select id="tripScore" resultType="com.final1.logic.MyPageDTO">
+	SELECT ROUND(AVG(SCORE),1) AS tripScore, NVL(COUNT(SCORE),0) AS inwonTrip, COUNT(DISTINCT(A.MFN)) AS tripCount
+	FROM TRIP_SCORE TS RIGHT JOIN ( SELECT MF.MEM_FINISH_NUM  AS MFN
+                                FROM MEM_JOIN MJ JOIN MEM_FINISH MF
+                                ON MJ.MEM_JOIN_NUM = MF.MEM_JOIN_NUM
+                                WHERE ID_NUM= (SELECT ID_NUM
+                                                FROM MEM_REGI
+                                                WHERE ID=#{id})
+                                 ) A
+	ON TS.TAKE_MEM_FINISH_NUM = A.MFN
+</select>
+
+<select id="block" resultType="com.final1.logic.MyPageDTO">
+	SELECT NIKNAME AS NIKNAME, PHOTO AS photo, M.ID_NUM AS IDNUM
+	FROM MEM_BLOCK MB RIGHT JOIN MEMBER M 
+	ON MB.BLOCKED_ID_NUM = M.ID_NUM
+	WHERE MB.BLOCKER_ID_NUM IN (SELECT ID_NUM FROM MEM_REGI WHERE ID=#{id})
+</select>
+
+<!-- 수정 ★ -->
+<select id="joinRooms" resultType="com.final1.logic.RoomListDTO">
+<![CDATA[
+		SELECT M.NIKNAME AS nikname
+	     , M.PHOTO  AS profile_photo
+	     , (SELECT NAME
+	        FROM REGION
+	        WHERE REGION_NUM = B.REGION_NUM) AS region
+	     , (SELECT CONTENT
+	        FROM PLAN_ONOFF
+	        WHERE PLAN_ONOFF_NUM = B.PLAN_ONOFF_NUM) AS PLAN_ONOFF
+	     , (SELECT CONTENT
+	        FROM GENDER_LIMIT
+	        WHERE GENDER_LIMIT_NUM = B.GENDER_LIMIT_NUM) AS GENDER_LIMIT
+	     , (SELECT CONTENT
+	        FROM AGE_LIMIT
+	        WHERE AGE_LIMIT_NUM = B.AGE_LIMIT_NUM) AS AGE_LIMIT
+       ,  TO_CHAR(B.TRIP_START_DATE,'YYYY-MM-DD') AS TRIP_START_DATE
+       ,  TO_CHAR(B.TRIP_END_DATE,'YYYY-MM-DD') AS TRIP_END_DATE
+	     , B.MEM_MAX AS MEM_MAX
+	     , B.ROOM_BUILD_DATE AS ROOM_BUILD_DATE
+	     , B.ROOM_TITLE AS ROOM_TITLE
+	     , B.BUDGET AS BUDGET
+	     , NVL(A.INWON,0) AS mem_curr
+	     , B.ROOM_NUM AS ROOM_NUM
+		FROM MEMBER M LEFT JOIN  BUILD_ROOM B
+		ON B.ID_NUM = M.ID_NUM
+		LEFT JOIN(SELECT ROOM_NUM AS RN, COUNT(ROOM_NUM) AS INWON                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+		          FROM MEM_JOIN MJ JOIN ONGOING OG
+                  ON mj.mem_join_num = OG.MEM_JOIN_NUM
+		          GROUP BY ROOM_NUM) A
+		ON B.ROOM_NUM = A.RN
+		 WHERE B.ROOM_NUM IN
+      (
+            SELECT MJ.ROOM_NUM
+			FROM ONGOING O JOIN MEM_JOIN MJ
+			ON o.mem_join_num = mj.mem_join_num
+			JOIN MEMBER M 
+			ON M.ID_NUM = MJ.ID_NUM 
+			JOIN MEM_REGI MR
+			ON MR.ID_NUM = M.ID_NUM
+			WHERE MR.ID = #{id}
+      )
+      AND TO_DATE(TRIP_END_DATE) - SYSDATE >= 0
+      ORDER BY SYSDATE-TO_DATE(TRIP_END_DATE)
+	]]>
+</select>
+
+<!-- 수정 ★ -->
+<select id="finRooms" resultType="com.final1.logic.RoomListDTO">
+<![CDATA[
+	SELECT M.NIKNAME AS nikname
+     , M.PHOTO  AS profile_photo
+     , (SELECT NAME
+        FROM REGION
+        WHERE REGION_NUM = B.REGION_NUM) AS REGION
+     , (SELECT CONTENT
+        FROM PLAN_ONOFF
+        WHERE PLAN_ONOFF_NUM = B.PLAN_ONOFF_NUM) AS PLAN_ONOFF
+     , (SELECT CONTENT
+        FROM GENDER_LIMIT
+        WHERE GENDER_LIMIT_NUM = B.GENDER_LIMIT_NUM) AS GENDER_LIMIT
+     , (SELECT CONTENT
+        FROM AGE_LIMIT
+        WHERE AGE_LIMIT_NUM = B.AGE_LIMIT_NUM) AS AGE_LIMIT
+     ,  TO_CHAR(B.TRIP_START_DATE,'YYYY-MM-DD') AS TRIP_START_DATE
+     ,  TO_CHAR(B.TRIP_END_DATE,'YYYY-MM-DD') AS TRIP_END_DATE
+     , B.ROOM_TITLE AS ROOM_TITLE
+     , B.BUDGET AS BUDGET
+     , ROUND(C.TRIP_SCORE,1) AS TRIP_SCORE
+     , B.ROOM_NUM AS ROOM_NUM
+	FROM BUILD_ROOM B LEFT JOIN MEMBER M
+	ON B.ID_NUM = M.ID_NUM
+	LEFT JOIN (SELECT ROOM_NUM AS RN, AVG(SCORE) AS TRIP_SCORE
+	            FROM MEM_FINISH MF  JOIN TRIP_SCORE TS
+	            ON MF.MEM_FINISH_NUM = TS.GIVE_MEM_FINISH_NUM
+	            JOIN MEM_JOIN MJ
+	            ON MJ.MEM_JOIN_NUM = MF.MEM_JOIN_NUM
+	            WHERE SYSDATE - TS.SCORE_DATE <365
+	            GROUP BY MJ.ROOM_NUM)C
+	ON B.ROOM_NUM = C.RN
+	WHERE B.ROOM_NUM IN
+	(
+	    SELECT MJ.ROOM_NUM   
+	    FROM MEM_JOIN MJ JOIN MEM_FINISH MF
+	    ON MJ.MEM_JOIN_NUM = MF.MEM_JOIN_NUM
+	    WHERE ID_NUM= (SELECT ID_NUM
+	                    FROM MEM_REGI
+	                    WHERE ID=#{id})
+	)
+	AND TO_DATE(TRIP_END_DATE) - SYSDATE < 0
+	ORDER BY SYSDATE-TO_DATE(TRIP_END_DATE)
+	]]>
+</select>
+
+<select id="searchId" resultType="com.final1.logic.MyPageDTO">
+	SELECT MR.ID AS ID, SUBSTR(M.SSN, 0, 8) || '******' AS SSN, M.PHOTO AS PHOTO, M.INTRODUCE AS INTRODUCE, M.NAME AS NAME, M.NIKNAME AS NIKNAME
+		,MR.ID_NUM AS IDNUM
+	FROM MEMBER M JOIN MEM_REGI MR
+	ON M.ID_NUM = MR.ID_NUM
+	WHERE M.ID_NUM= (SELECT ID_NUM
+	                FROM MEM_REGI
+	                WHERE ID=#{id})
+</select>
+
+<select id="pwCorrect1" resultType="Integer">
+	SELECT NVL(COUNT(*),0) AS COUNT
+	FROM MEMBER
+	WHERE PW = CRYPTPACK.ENCRYPT(#{pwNow},#{pwNow})
+	    AND ID_NUM= (SELECT ID_NUM
+	                FROM MEM_REGI
+	                WHERE ID=#{id})
+</select>
+
+<update id="pwModify" parameterType="Map">
+	UPDATE MEMBER
+	SET PW = CRYPTPACK.ENCRYPT(#{newPw},#{newPw})
+    WHERE ID_NUM= (SELECT ID_NUM
+	                FROM MEM_REGI
+	                WHERE ID=#{id})
+</update>
+
+<select id="nikCheck" resultType="Integer">
+	SELECT COUNT(*) AS COUNT
+	FROM
+	(
+	    SELECT *
+	    FROM MEMBER
+	    WHERE NIKNAME NOT IN( SELECT M.NIKNAME
+		                        FROM MEM_REGI MR JOIN MEMBER M
+		                        ON MR.ID_NUM = M.ID_NUM
+		                        WHERE MR.ID=#{id})
+	)
+	WHERE NIKNAME =#{nikname}
+</select>
+
+
+<select id="pwCorrect2" resultType="Integer">
+	SELECT NVL(COUNT(*),0) AS COUNT
+	FROM MEMBER
+	WHERE PW = CRYPTPACK.ENCRYPT(#{pwSg},#{pwSg})
+	    AND ID_NUM= (SELECT ID_NUM
+	                FROM MEM_REGI
+	                WHERE ID=#{id})
+</select>
+
+<select id="PRC_MEMBER_TAL_CHECK" statementType="CALLABLE" parameterType="hashMap">
+    {call PRC_MEMBER_TAL_CHECK(
+            #{V_ID, mode=IN, jdbcType=VARCHAR}
+			,#{V_RESULT, mode=OUT, jdbcType=VARCHAR}
+        )
+    }
+</select>
+<select id="PRC_MEMBER_TAL" statementType="CALLABLE" parameterType="hashMap">
+    {call PRC_MEMBER_TAL(
+            #{V_ID, mode=IN, jdbcType=VARCHAR}
+			,#{V_ID_NUM, mode=IN, jdbcType=VARCHAR}
+			,#{V_NAME, mode=IN, jdbcType=VARCHAR}
+			,#{V_SSN, mode=IN, jdbcType=VARCHAR}
+        )
+    }
+</select>
+
+<update id="totalUpdate" parameterType="com.final1.logic.MyPageDTO">
+	UPDATE MEMBER
+	SET NAME=#{name},NIKNAME =#{nikname},INTRODUCE=#{introduce}
+	WHERE ID_NUM= (SELECT ID_NUM
+	                FROM MEM_REGI
+	                WHERE ID=#{id})
+</update>
+
+<!-- 사진 수정 보류 ★
+ <update id="updatePhoto" parameterType="java.lang.String">
+	UPDATE MEMBER
+	SET PHOTO = #{srcName}
+	WHERE ID_NUM= (SELECT ID_NUM
+	                FROM MEM_REGI
+	                WHERE ID=#{id})
+</update> -->
+
+
+
+</mapper>

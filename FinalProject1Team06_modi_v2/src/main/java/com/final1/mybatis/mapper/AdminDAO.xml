@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.final1.logic.IAdminDAO">
+	
+	<!-- 회원 리스트  ★ 수정 ★ -->
+	<select id="memberList" resultType="com.final1.logic.MemberListDTO">
+		<![CDATA[
+		SELECT A.NUM AS NUM, A.IDNUM AS IDNUM, A.ID AS ID, A.NAME AS NAME, A.MEMSTATUS AS MEMSTATUS, A.SSN AS SSN
+        FROM
+        (
+            SELECT ROWNUM AS NUM
+                 , IDNUM, ID, SSN, NAME, MEMSTATUS
+            FROM MEMBER_LIST_VIEW
+        )A
+        WHERE NUM >=#{start} AND NUM <=#{end}
+		]]>
+	</select>
+	
+	<!-- 전체 회원 수 -->
+	<select id="count" resultType="java.lang.Integer">
+		SELECT COUNT(*) AS COUNT
+		FROM MEMBER_LIST_VIEW
+	</select>
+	
+	<!-- 회원 검색 ★ 수정 ★ -->
+	<select id="searchMemberList" resultType="com.final1.logic.MemberListDTO">
+		<![CDATA[
+		SELECT A.NUM AS NUM, A.IDNUM AS IDNUM, A.ID AS ID, A.NAME AS NAME, A.MEMSTATUS AS MEMSTATUS, A.SSN AS SSN
+        FROM
+        (
+            SELECT ROWNUM AS NUM
+                 , IDNUM, ID, SSN, NAME, MEMSTATUS
+            FROM MEMBER_LIST_VIEW
+            WHERE ${searchKey} = #{searchValue}
+        )A
+        WHERE NUM >=#{start} AND NUM <=#{end}
+		]]>
+	</select>
+	
+	<!-- 회원 검색 인원 수 -->
+	<select id="searchMemberCount" resultType="java.lang.Integer">
+		SELECT COUNT(*) AS COUNT
+		FROM MEMBER_LIST_VIEW
+		WHERE ${searchKey} = #{searchValue}
+	</select>
+	
+	
+	
+	
+	<!-- 전체 패널티 현황 -->
+	<select id="penaltyList" resultType="com.final1.logic.PenaltyListDTO">
+	<![CDATA[
+		SELECT NUM, REPORTER, REPORTERID, REPORTED, REPORTEDID
+			 , REASON, CONTENT, TO_CHAR(STARTDATE, 'YYYY-MM-DD') AS STARTDATE, ADMIN, ADMINID
+		FROM PENALTY_VIEW
+		WHERE NUM >=#{start} AND NUM <=#{end}
+	]]>
+	</select>
+	
+	<!-- 전체 패널티 건수 -->
+	<select id="penaltyCount" resultType="java.lang.Integer">
+		SELECT COUNT(*) AS COUNT
+		FROM PENALTY_VIEW
+	</select>
+	
+	<!-- 패널티 검색 -->
+	<select id="searchPenaltyList" resultType="com.final1.logic.PenaltyListDTO">
+	<![CDATA[
+	SELECT A.NUM AS NUM, A.REPORTER AS REPORTER, A.REPORTERID AS REPORTERID, A.REPORTED AS REPORTED, A.REPORTEDID AS REPORTEDID
+	 , A.REASON AS REASON, A.CONTENT AS CONTENT, A.STARTDATE AS STARTDATE, A.ADMIN AS ADMIN, A.ADMINID AS ADMINID
+	FROM
+	(
+		SELECT ROWNUM AS NUM, REPORTER, REPORTERID, REPORTED, REPORTEDID
+     		 , REASON, CONTENT, TO_CHAR(STARTDATE, 'YYYY-MM-DD') AS STARTDATE, ADMIN, ADMINID
+		FROM PENALTY_VIEW
+		WHERE ${searchKey} = #{searchValue}
+	)A
+	WHERE NUM >= #{start} AND NUM <= #{end}
+	]]>
+	</select>
+	
+	<!-- 패널티 검색 건수 -->
+	<select id="searchPenaltyCount" resultType="java.lang.Integer">
+		SELECT COUNT(*) AS COUNT
+		FROM PENALTY_VIEW
+		WHERE ${searchKey} = #{searchValue}
+	</select>
+	
+	
+	<!-- 전체 신고 현황 -->
+	<select id="reportList" resultType="com.final1.logic.ReportListDTO">
+	<![CDATA[
+		SELECT NUM, REPORTRECEIPTNUM, REPORTER, REPORTERID, REPORTED
+			 , REPORTEDID, REASON, CONTENT, TO_CHAR(REPORTDATE, 'YYYY-MM-DD') AS REPORTDATE, RESULT
+			 , CASE SUBSTR(REPORTRECEIPTNUM, 0, 8)
+            		WHEN 'R-R-RC-0' THEN 'ROOM'
+            		WHEN 'PM-R-RC-' THEN 'PLANMEMO'
+            		WHEN 'PF-R-RC-' THEN 'PROFILE'
+            		WHEN 'NOT-J-R-' THEN 'UNJOIN'
+            		WHEN 'F-R-RC-0' THEN 'FEED'
+            		WHEN 'CM-R-RC-' THEN 'COLLECTION'
+            		ELSE '' 
+            	END AS RECEIPTNUM
+		FROM REPORT_LIST_VIEW
+		WHERE NUM >=#{start} AND NUM <=#{end}
+		]]>
+	</select>
+	
+	<!-- 전체 신고 건수 -->
+	<select id="reportCount" resultType="java.lang.Integer">
+		SELECT COUNT(*) AS COUNT
+		FROM REPORT_LIST_VIEW
+	</select>
+	
+	<!-- 신고 검색 -->
+	
+	<select id="searchReportList" resultType="com.final1.logic.ReportListDTO">
+	<![CDATA[
+		SELECT  A.NUM AS NUM, A.REPORTRECEIPTNUM AS REPORTRECEIPTNUM, A.REPORTER AS REPORTER, A.REPORTERID AS REPORTERID
+			, A.REPORTED AS REPORTED, A.REPORTEDID AS REPORTEDID, A.REASON AS REASON, A.CONTENT AS CONTENT
+	     		 , A.REPORTDATE AS REPORTDATE, A.RESULT AS RESULT
+		FROM
+		(
+			SELECT ROWNUM AS NUM, REPORTRECEIPTNUM, REPORTER, REPORTERID, REPORTED, REPORTEDID, REASON, CONTENT
+	     		 , TO_CHAR(REPORTDATE, 'YYYY-MM-DD') AS REPORTDATE, RESULT
+			FROM REPORT_LIST_VIEW
+			WHERE ${searchKey} = #{searchValue}
+		)A
+		WHERE NUM >= #{start} AND NUM <= #{end}
+		]]>
+	</select>
+	
+	<!-- 신고 검색 건수 -->
+	<select id="searchReportCount" resultType="java.lang.Integer">
+		SELECT COUNT(*) AS COUNT
+		FROM REPORT_LIST_VIEW
+		WHERE ${searchKey} = #{searchValue}
+	</select>
+	
+	<!-- 특정 인원의 신고 현황 -->
+	<select id="searchId" resultType="com.final1.logic.ReportListDTO">
+		SELECT NUM, REPORTRECEIPTNUM, REPORTER, REPORTERID, REPORTED, REPORTEDID
+     		 , REASON, CONTENT, TO_CHAR(REPORTDATE, 'YYYY-MM-DD') AS REPORTDATE, RESULT
+     		 , CASE SUBSTR(REPORTRECEIPTNUM, 0, 8)
+            		WHEN 'R-R-RC-0' THEN 'ROOM'
+            		WHEN 'PM-R-RC-' THEN 'PLANMEMO'
+            		WHEN 'PF-R-RC-' THEN 'PROFILE'
+            		WHEN 'NOT-J-R-' THEN 'UNJOIN'
+            		WHEN 'F-R-RC-0' THEN 'FEED'
+            		WHEN 'CM-R-RC-' THEN 'COLLECTION'
+            		ELSE '' 
+            	END AS RECEIPTNUM
+		FROM REPORT_LIST_VIEW
+		WHERE NUM = #{num}
+	</select>
+	
+	<!-- 계정정지 여부 확인 및 패널티 시작일 계산 -->
+	<select id="checkStopId" resultType="java.lang.String" parameterType="String">
+		SELECT NVL(TO_CHAR(MAX(END_DATE+1),'YYYY-MM-DD'), TO_CHAR(SYSDATE,'YYYY-MM-DD')) AS BLOCKSTART
+		FROM STOP_ID_VIEW
+		WHERE END_DATE > SYSDATE
+		AND ID_NUM = (SELECT ID_NUM FROM MEM_REGI WHERE ID=#{id})
+	</select>
+	
+	<!-- 방 신고처리 테이블 삽입 -->
+	<insert id="addRoom">
+		INSERT INTO ROOM_REPORT_RESULT(ROOM_REPORT_RESULT_NUM, ROOM_REPORT_RECEIPT_NUM, REPORT_RESULT_TYPE_NUM, ID_NUM, REPORT_RESULT_DATE, REPORTER_ALARM_CHECK_DATE, REPORTED_ALARM_CHECK_DATE)
+		VALUES(CONCAT('R-R-RS-', LPAD(ROOM_REPORT_RESULT_SEQ.NEXTVAL,5,0)), #{reportReceiptNum}, #{selectPenalty}, (SELECT ID_NUM FROM MEM_REGI WHERE ID=#{adminId}), SYSDATE, NULL, NULL)
+	</insert>
+	
+	<!-- 방 신고 패널티 테이블 삽입 -->
+	<insert id="addRoomPenalty">
+		INSERT INTO ROOM_REPORT_PENALTY (ROOM_REPORT_PENALTY_NUM, ROOM_REPORT_RESULT_NUM, START_DATE, ALARM_CHECK_DATE)
+		VALUES (CONCAT('R-R-P-', LPAD(ROOM_REPORT_PENALTY_SEQ.NEXTVAL,5,0))
+			 , (SELECT ROOM_REPORT_RESULT_NUM FROM ROOM_REPORT_RESULT WHERE ROOM_REPORT_RECEIPT_NUM = #{reportReceiptNum})
+			  , NVL(TO_DATE(#{blockStart}, 'YYYY-MM-DD'), SYSDATE), NULL)
+	</insert>
+	
+	<!-- 컬렉션 메모 신고 처리 테이블 삽입 -->
+	<insert id="addCollectionMemo">
+		INSERT INTO CM_REPORT_RESULT (CM_REPORT_RESULT_NUM, CM_REPORT_RECEIPT_NUM, ID_NUM, CM_REPORT_RESULT_TYPE_NUM, RESULT_DATE
+									, REPORTED_ALARM_CHECK_DATE,REPORTER_ALARM_CHECK_DATE) 
+		VALUES (CONCAT('CM-R-RS-', LPAD(CM_REPORT_RESULT_SEQ.NEXTVAL,5,0)), #{reportReceiptNum}
+			 , (SELECT ID_NUM FROM MEM_REGI WHERE ID=#{adminId}) ,#{selectPenalty}, SYSDATE, NULL, NULL)
+	</insert>
+	
+	<!-- 컬렉션 메모 신고 패널티 테이블 삽입 -->
+	<insert id="addCollectionMemoPenalty">
+		INSERT INTO CM_REPORT_PENALTY (CM_REPORT_PENALTY_NUM, CM_REPORT_RESULT_NUM, START_DATE, ALARM_CHECK_DATE)
+		VALUES (CONCAT('CM-R-P-', LPAD(CM_REPORT_PENALTY_SEQ.NEXTVAL, 5, 0))
+			 , (SELECT CM_REPORT_RESULT_NUM FROM CM_REPORT_RESULT WHERE CM_REPORT_RECEIPT_NUM = #{reportReceiptNum})
+			 , NVL(TO_DATE(#{blockStart}, 'YYYY-MM-DD'), SYSDATE), NULL)
+	</insert>
+	
+	<!-- 플래너 메모 신고 처리 테이블 삽입 -->
+	<insert id="addPlannerMemo">
+		INSERT INTO PM_REPORT_RESULT (PM_REPORT_RESULT_NUM, PM_REPORT_RECEIPT_NUM, ID_NUM, PM_REPORT_RESULT_TYPE_NUM
+									, RESULT_DATE, REPORTED_ALARM_CHECK_DATE, REPORTER_ALARM_CHECK_DATE)
+		VALUES (CONCAT('PM-R-RS-', LPAD(PM_REPORT_RESULT_SEQ.NEXTVAL, 5, 0)), #{reportReceiptNum}
+			 , (SELECT ID_NUM FROM MEM_REGI WHERE ID=#{adminId}), #{selectPenalty}, SYSDATE, NULL, NULL)
+	</insert>
+	
+	<!-- 플래너 메모 신고 패널티 테이블 삽입 -->
+	<insert id="addPlannerMemoPenalty">
+		INSERT INTO PM_REPORT_PENALTY (PM_REPORT_PENALTY_NUM, PM_REPORT_RESULT_NUM, START_DATE, ALARM_CHECK_DATE)
+		VALUES (CONCAT('PM-R-P-', LPAD(PM_REPORT_PENALTY_SEQ.NEXTVAL, 5, 0))
+			 , (SELECT PM_REPORT_RESULT_NUM FROM PM_REPORT_RESULT WHERE PM_REPORT_RECEIPT_NUM = #{reportReceiptNum})
+			 , NVL(TO_DATE(#{blockStart}, 'YYYY-MM-DD'), SYSDATE), NULL)
+	</insert>
+	
+	<!-- 프로필 신고 처리 테이블 삽입 -->
+	<insert id="addProfile">
+		INSERT INTO PF_REPORT_RESULT (PF_REPORT_RESULT_NUM, PF_REPORT_RECEIPT_NUM, PF_REPORT_RESULT_TYPE_NUM, ID_NUM
+									, RESULT_DATE, REPORTER_ALARM_CHECK_DATE, REPORTED_ALARM_CHECK_DATE)
+		VALUES (CONCAT('PF-R-RS-', LPAD(PF_REPORT_RESULT_SEQ.NEXTVAL, 5, 0)), #{reportReceiptNum}, #{selectPenalty}
+			 , (SELECT ID_NUM FROM MEM_REGI WHERE ID=#{adminId}), SYSDATE, NULL, NULL)
+	</insert>
+	
+	<!-- 프로필 신고 패널티 테이블 삽입 -->
+	<insert id="addProfilePenalty">
+		INSERT INTO PF_REPORT_PENALTY (PF_REPORT_PENALTY_NUM, PF_REPORT_RESULT_NUM, START_DATE,ALARM_CHECK_DATE) 
+		VALUES (CONCAT('PF-R-P-',LPAD(PF_REPORT_PENALTY_SEQ.NEXTVAL,5,0))
+			 , (SELECT PF_REPORT_RESULT_NUM FROM PF_REPORT_RESULT WHERE PF_REPORT_RECEIPT_NUM = #{reportReceiptNum})
+			 , NVL(TO_DATE(#{blockStart}, 'YYYY-MM-DD'), SYSDATE), NULL)
+	</insert>
+	
+	<!-- 피드 신고 처리 테이블 삽입 -->
+	<insert id="addFeed">
+		INSERT INTO FEED_REPORT_RESULT (FEED_REPORT_RESULT_NUM, FEED_REPORT_RECEIPT_NUM, FEED_REPORT_RESULT_TYPE_NUM, ID_NUM
+									  , RESULT_DATE, REPORTER_ALARM_CHECK_DATE, REPORTED_ALARM_CHECK_DATE) 
+		VALUES (CONCAT('FEED-R-RS-', LPAD(FEED_REPORT_RESULT_SEQ.NEXTVAL,5,0)), #{reportReceiptNum}, #{selectPenalty}
+			 , (SELECT ID_NUM FROM MEM_REGI WHERE ID=#{adminId}), SYSDATE, NULL, NULL)
+	</insert>
+	
+	<!-- 피드 신고 패널티 테이블 삽입 -->
+	<insert id="addFeedPenalty">
+		INSERT INTO FEED_REPORT_PENALTY (FEED_REPORT_PENALTY_NUM, FEED_REPORT_RESULT_NUM, START_DATE, ALARM_CHECK_DATE) 
+		VALUES (CONCAT('FEED-R-P-', LPAD(FEED_REPORT_PENALTY_SEQ.NEXTVAL,5,0))
+			 , (SELECT FEED_REPORT_RESULT_NUM FROM FEED_REPORT_RESULT WHERE FEED_REPORT_RECEIPT_NUM = #{reportReceiptNum})
+			 , NVL(TO_DATE(#{blockStart}, 'YYYY-MM-DD'), SYSDATE), NULL)
+	</insert>
+	
+</mapper>

@@ -1,0 +1,1009 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.final1.logic.IRoomDAO">
+
+	<!-- 특정 방 정보 불러오기 -->
+	<select id="planner" resultType="com.final1.logic.RoomDTO">
+			SELECT RLV.*
+		     , CASE WHEN ROOM_NUM IN (SELECT ROOM_NUM
+		                              FROM PW_CODE)
+		       THEN 'YES' ELSE 'NO' END AS PW_CODE
+		     , CASE WHEN ROOM_NUM IN (SELECT J.ROOM_NUM
+		                              FROM ONGOING G LEFT JOIN MEM_JOIN J
+		                              ON G.MEM_JOIN_NUM = J.MEM_JOIN_NUM
+		                              WHERE J.ID_NUM = #{my_id})
+		       THEN 'YES' ELSE 'NO' END AS ONGOING
+		     , CASE WHEN ROOM_NUM IN (SELECT ROOM_NUM
+		                              FROM BOOKMARK
+		                              WHERE MEM_NUM = (SELECT MEM_NUM
+		                                              FROM MEMBER
+		                                              WHERE ID_NUM = #{my_id}))
+		       THEN 'YES' ELSE 'NO' END AS BOOKMARK    	   
+		FROM ROOM_LIST_VIEW RLV
+		WHERE ROOM_NUM = #{room_num}
+	</select>
+	
+	<select id="dayCal" resultType="Integer">
+		SELECT TRIP_END_DATE - TRIP_START_DATE + 1
+        FROM BUILD_ROOM
+        WHERE ROOM_NUM = #{room_num}
+	</select>
+	
+	<!-- 방에 속한 인원들의 정보 -->
+	<select id="roomMembers" resultType="com.final1.logic.RoomMemberDTO">
+		SELECT G.ONGOING_NUM AS ONGOING_NUM, G.MEM_JOIN_NUM AS MEM_JOIN_NUM
+		     , J.ID_NUM AS ID_NUM, J.ROOM_NUM AS ROOM_NUM, M.PHOTO AS PHOTO
+		     , M.NIKNAME AS NICKNAME, MR.ID AS ID
+		     , CASE WHEN SUBSTR(M.SSN, 8, 1) IN ('1','2') 
+		       THEN TO_NUMBER(TO_CHAR(SYSDATE, 'YYYY')) - TO_NUMBER('19'||SUBSTR(M.SSN,1,2))
+		       ELSE TO_NUMBER(TO_CHAR(SYSDATE, 'YYYY')) - TO_NUMBER('20'||SUBSTR(M.SSN,1,2))
+		       END AS AGE
+		     , G.READY
+		FROM ONGOING G, MEM_JOIN J, BUILD_ROOM BR, MEMBER M, MEM_REGI MR
+		WHERE G.MEM_JOIN_NUM = J.MEM_JOIN_NUM
+		  AND J.ROOM_NUM = BR.ROOM_NUM
+		  AND BR.ROOM_NUM=#{room_num}
+		  AND M.ID_NUM = J.ID_NUM
+		  AND M.ID_NUM = MR.ID_NUM
+		ORDER BY G.MEM_JOIN_NUM
+	</select>
+	
+	
+	<!-- 각 메이트 레디하기 -->
+	<update id="ready">
+		UPDATE ONGOING
+		SET READY = ${choice}
+		WHERE ONGOING_NUM =(SELECT OG.ONGOING_NUM
+		                    FROM ONGOING OG, MEM_JOIN MJ
+		                    WHERE OG.MEM_JOIN_NUM = MJ.MEM_JOIN_NUM
+		                      AND MJ.ROOM_NUM = #{room_num}
+		                      AND MJ.ID_NUM = #{my_id})
+	</update>
+	
+	<!-- 해당 메이트가 레디 했는지 -->
+	<select id="isReady" resultType="com.final1.logic.RoomMemberDTO">
+		SELECT NVL(TO_CHAR(OG.READY, 'YYYY-MM-DD'), '0') AS READY
+		FROM ONGOING OG, MEM_JOIN MJ
+		WHERE OG.MEM_JOIN_NUM = MJ.MEM_JOIN_NUM
+		  AND MJ.ROOM_NUM = #{room_num}
+		  AND MJ.ID_NUM = #{my_id}
+	</select>
+	
+	<!-- 전체 레디 상태인지 확인 -->
+	<select id="allReady" resultType="java.lang.String">
+		SELECT SUM(NVL2(G.READY, 1, 0))
+		FROM ONGOING G, MEM_JOIN J, BUILD_ROOM BR, MEMBER M
+		WHERE G.MEM_JOIN_NUM = J.MEM_JOIN_NUM
+		  AND J.ROOM_NUM = BR.ROOM_NUM
+		  AND BR.ROOM_NUM= #{room_num}
+		  AND M.ID_NUM = J.ID_NUM
+	</select>
+	
+	<!-- 출발하기 -->
+	<update id="go">
+		UPDATE BUILD_ROOM
+		SET FINAL_GO_DATE = SYSDATE
+		WHERE ROOM_NUM = #{room_num}
+	</update>
+	
+	<!-- 출발 버튼 누를 때 완료방에 추가 -->
+	<insert id="finAdd">
+		INSERT INTO MEM_FINISH(MEM_FINISH_NUM, MEM_JOIN_NUM, ALARM_CHECK_DATE)
+		VALUES(CONCAT('MEM-FINISH-', LPAD(MEM_FINISH_SEQ.NEXTVAL, 5, 0)), 
+		#{mem_join_num},NULL)
+	</insert>
+	
+	<!-- 북마크 존재하는지 찾기 -->
+	<select id="searchBookmark" resultType="java.lang.String">
+		SELECT BOOKMARK_NUM
+		FROM BOOKMARK
+		WHERE ROOM_NUM = #{room_num}
+		  AND MEM_NUM = (SELECT MEM_NUM FROM MEMBER WHERE ID_NUM = #{my_id})
+	</select>
+	
+	<!-- 북마크 추가 -->
+	<insert id="addBookmark">
+		INSERT INTO BOOKMARK(BOOKMARK_NUM, ROOM_NUM, MEM_NUM, BOOKMARK_DATE)
+		VALUES('MARK-'||LPAD(BOOKMARK_SEQ.NEXTVAL,5,0), #{room_num}, (SELECT MEM_NUM FROM MEMBER WHERE ID_NUM = #{my_id}), SYSDATE)
+	</insert>
+	
+	<!-- 북마크 삭제 -->
+	<delete id="removeBookmark">
+		DELETE
+		FROM BOOKMARK
+		WHERE ROOM_NUM = #{room_num}
+		  AND MEM_NUM = (SELECT MEM_NUM FROM MEMBER WHERE ID_NUM = #{my_id})
+	</delete>
+	
+	
+	
+	<!-- 레디 확인 알람 -->
+	<update id="readyAlarm">
+		UPDATE ONGOING
+		SET GO_ALARM_CHECK_DATE = SYSDATE
+		WHERE ONGOING_NUM =(SELECT OG.ONGOING_NUM
+		                    FROM ONGOING OG, MEM_JOIN MJ
+		                    WHERE OG.MEM_JOIN_NUM = MJ.MEM_JOIN_NUM
+		                      AND MJ.ROOM_NUM = #{room_num}
+		                      AND MJ.ID_NUM = #{my_id})
+	</update>
+	
+	<!-- 최대정원 추가 -->
+	<update id="memberPlus">
+		UPDATE BUILD_ROOM
+		SET MEM_MAX = MEM_MAX + 1
+		WHERE ROOM_NUM = #{room_num}	
+	</update>
+	
+	<!-- 최대정원 감소 -->
+	<update id="memberMinus">
+		UPDATE BUILD_ROOM
+		SET MEM_MAX = MEM_MAX - 1
+		WHERE ROOM_NUM = #{room_num}	
+	</update>
+
+	<!-- 출발 여부 확인 -->
+	<select id="goCheck"  resultType="java.lang.String">
+		SELECT FINAL_GO_DATE
+		FROM BUILD_ROOM
+		WHERE ROOM_NUM = #{room_num}
+	</select>
+
+	<!-- 자진퇴장 혹은 강제퇴장 -->
+	<delete id="removeMember">
+		DELETE
+		FROM ONGOING
+		WHERE MEM_JOIN_NUM=(SELECT MEM_JOIN_NUM
+					 		FROM ONGOING
+		 					WHERE MEM_JOIN_NUM LIKE '%' || (SELECT TO_CHAR(MAX(TO_NUMBER(SUBSTR(MEM_JOIN_NUM,10,5))))
+                                							FROM MEM_JOIN
+                                		 					WHERE ID_NUM = #{idNum}
+                                 		 					AND ROOM_NUM = #{room_num}))
+	</delete>
+
+	<!-- 퇴장했을 때 퇴장인원으로 분류 -->
+	<insert id="insertExitMember">
+		INSERT INTO EXIT(EXIT_NUM, MEM_JOIN_NUM, EXIT_REASON_NUM)
+		VALUES('EXIT-'||LPAD(EXIT_SEQ.NEXTVAL,5,0) 
+		, (SELECT MEM_JOIN_NUM
+		 FROM ONGOING
+		 WHERE MEM_JOIN_NUM LIKE '%' || (SELECT TO_CHAR(MAX(TO_NUMBER(SUBSTR(MEM_JOIN_NUM,10,5))))
+                                		 FROM MEM_JOIN
+                                		 WHERE ID_NUM = #{idNum}
+                                 		 AND ROOM_NUM = #{room_num}))
+        , #{reason})
+	
+	</insert>
+	
+	
+	<!-- 플래너 세부일정 및 메모 -->
+	<!-- 플래너 세부일정 및 메모 -->
+   <select id="plannerLocMemo" resultType="com.final1.logic.PlannerLocMemoDTO">
+      SELECT A.LOC_MEMO_NUM AS LOC_MEMO_NUM, A.ROOM_NUM AS ROOM_NUM, A.DAY AS DAY, A.SEQUENCE AS SEQUENCE, A.LOC_CONTENT AS LOC_CONTENT, A.MAP_LAT AS MAP_LAT
+       , A.MAP_LNG AS MAP_LNG, NVL(B.CHECKFIX,0) AS CHECKFIX
+      FROM
+      (
+              SELECT PLANNER_LOC_NUM AS LOC_MEMO_NUM, ROOM_NUM, DAY, SEQUENCE, LOC_NAME AS LOC_CONTENT, MAP_LAT, MAP_LNG
+            FROM PLANNER_LOC
+            WHERE ROOM_NUM =#{room_num}
+            UNION ALL
+            SELECT PLANNER_MEMO_NUM, ROOM_NUM, DAY, SEQUENCE, CONTENT, NULL,  NULL
+            FROM PLANNER_MEMO
+            WHERE ROOM_NUM =#{room_num}
+              ORDER BY DAY, SEQUENCE
+      
+      )A LEFT JOIN (SELECT A.DAY AS DAY, A.COUNT AS COUNT, COUNT(FIX_NUM) AS CHECKFIX
+          FROM (SELECT HP.DAY, COUNT(MP.MEM_PASS_NUM) AS COUNT
+          FROM MEM_PASS MP JOIN HOST_PASS HP
+          ON MP.HOST_PASS_NUM = HP.HOST_PASS_NUM
+          JOIN ONGOING OG
+          ON OG.MEM_JOIN_NUM = MP.MEM_JOIN_NUM
+          WHERE MP.HOST_PASS_NUM IN (SELECT HOST_PASS_NUM FROM HOST_PASS WHERE ROOM_NUM = #{room_num})
+          GROUP BY HP.DAY)A
+          LEFT JOIN (SELECT * FROM FIX WHERE ROOM_NUM =#{room_num}) F
+          ON A.DAY = F.DAY
+          GROUP BY A.DAY, A.COUNT)B
+      ON A.DAY = B.DAY
+      ORDER BY A.DAY, A.SEQUENCE
+   </select>
+
+
+	<!-- 특정 일자 플래너 세부일정 및 메모 -->
+	<select id="plannerLocMemoDay" resultType="com.final1.logic.PlannerLocMemoDTO">
+		SELECT LOC_MEMO_NUM, ROOM_NUM, SEQUENCE, LOC_CONTENT, MAP_LAT, MAP_LNG
+		FROM
+		(
+		    SELECT PLANNER_LOC_NUM AS LOC_MEMO_NUM, ROOM_NUM, DAY, SEQUENCE, LOC_NAME AS LOC_CONTENT, MAP_LAT, MAP_LNG
+		    FROM PLANNER_LOC
+		    WHERE ROOM_NUM = #{room_num}
+		    UNION ALL
+		    SELECT PLANNER_MEMO_NUM, ROOM_NUM, DAY, SEQUENCE, CONTENT, NULL,  NULL
+		    FROM PLANNER_MEMO
+		    WHERE ROOM_NUM = #{room_num}
+		    ORDER BY DAY, SEQUENCE
+		)
+		WHERE DAY = ${day}
+	</select>
+	
+	<!-- 아이디로 아이디번호 찾기 -->
+	<select id="findIdNum" resultType="java.lang.String">
+		SELECT ID_NUM
+		FROM MEM_REGI
+		WHERE ID = #{my_real_id}	
+	</select>
+	<!-- ★ 수정 -->
+	<!-- 여행 날짜가 기존 참여 여행과 겹치는지 확인 (0:안겹침 / 그 외:겹침) -->
+	<select id="compareDate" resultType="java.lang.String">
+		SELECT NVL(SUM(T.SUM),0) AS RESULT
+		FROM
+		(
+		    SELECT CASE WHEN (TO_DATE(#{startDate},'YYYY-MM-DD') BETWEEN TRIP_START_DATE AND TRIP_END_DATE)
+		           THEN 1 
+		           ELSE 0 
+		           END
+		         + CASE WHEN (TO_DATE(#{endDate},'YYYY-MM-DD') BETWEEN TRIP_START_DATE AND TRIP_END_DATE) 
+		           THEN 1 
+		           ELSE 0 
+		           END AS SUM
+		    FROM
+		    (
+		        SELECT B.TRIP_START_DATE AS TRIP_START_DATE
+		             , B.TRIP_END_DATE AS TRIP_END_DATE
+		        FROM MEMBER M LEFT JOIN  BUILD_ROOM B
+		        ON B.ID_NUM = M.ID_NUM
+		        LEFT JOIN(SELECT ROOM_NUM AS RN, COUNT(ROOM_NUM) AS INWON                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+		                  FROM MEM_JOIN
+		                  GROUP BY ROOM_NUM) A
+		        ON B.ROOM_NUM = A.RN
+		        WHERE B.ROOM_NUM IN
+		        (
+		           SELECT ROOM_NUM
+		           FROM MEM_JOIN
+		           WHERE MEM_JOIN_NUM IN
+		               (SELECT MEM_JOIN_NUM
+		                FROM ONGOING
+		                WHERE MEM_JOIN_NUM IN
+		                   (SELECT MEM_JOIN_NUM  
+		                    FROM MEM_JOIN
+		                    WHERE ID_NUM = (SELECT ID_NUM
+		                                    FROM MEM_REGI
+		                                    WHERE ID=#{my_real_id})))
+		        )
+		        AND TRIP_END_DATE -SYSDATE > 0
+		        ORDER BY SYSDATE-TRIP_END_DATE
+		    )
+		) T		
+	</select>
+	
+	<!-- 참여인원에 입력 -->
+	<insert id="memJoin">
+		INSERT INTO MEM_JOIN(MEM_JOIN_NUM, ID_NUM, ROOM_NUM, JOIN_DATE)
+		VALUES('MEM-JOIN-'||LPAD(MEM_JOIN_SEQ.NEXTVAL,5,0),#{id_num}, #{room_num}, SYSDATE)
+	</insert>
+	
+	<!-- 진행중참여인원에 입력 -->
+	<insert id="ongoing">
+		INSERT INTO ONGOING(ONGOING_NUM, MEM_JOIN_NUM)
+		VALUES('ONGOING-'|| LPAD(ONGOING_SEQ.NEXTVAL,5,0)
+		     ,'MEM-JOIN-'|| LPAD((SELECT TO_CHAR(MAX(TO_NUMBER(SUBSTR(MEM_JOIN_NUM,10,5))))
+		                          FROM MEM_JOIN
+		                          WHERE ID_NUM = #{id_num}
+		                          AND ROOM_NUM = #{room_num}),5,0))
+	</insert>	
+	
+	<!-- 플래너 메모 추가 -->
+	<insert id="addMemo">
+		INSERT INTO PLANNER_MEMO(PLANNER_MEMO_NUM, ROOM_NUM, DAY, CONTENT, SEQUENCE, WRITE_DATE)
+		VALUES('PLAN-MEMO-'||LPAD(PLANNER_MEMO_SEQ.NEXTVAL,5,0),#{room_num},${day}
+		     , #{content}
+		     , (SELECT MAX(SEQUENCE)+1 AS MAXNUM
+		        FROM
+		        (
+		            SELECT PLANNER_LOC_NUM, ROOM_NUM, DAY, SEQUENCE
+		            FROM PLANNER_LOC
+		            UNION ALL
+		            SELECT PLANNER_MEMO_NUM, ROOM_NUM, DAY, SEQUENCE
+		            FROM PLANNER_MEMO
+		        ))
+		      , SYSDATE)	
+	</insert>
+	
+	<!-- 플래너 장소 추가 -->
+	<insert id="addPlan">
+		INSERT INTO PLANNER_LOC(PLANNER_LOC_NUM, ROOM_NUM, MAP_LAT, MAP_LNG, LOC_NAME, DAY, SEQUENCE)
+		VALUES('PLAN-LOC-'||LPAD(PLANNER_LOC_SEQ.NEXTVAL,5,0), #{room_num}, #{lat}, #{lng}, #{title}, #{day}
+		       , (SELECT MAX(SEQUENCE)
+		        FROM
+		        (
+		            SELECT PLANNER_LOC_NUM, ROOM_NUM, DAY, SEQUENCE
+		            FROM PLANNER_LOC
+		            UNION ALL
+		            SELECT PLANNER_MEMO_NUM, ROOM_NUM, DAY, SEQUENCE
+		            FROM PLANNER_MEMO
+		        )) + 1)	
+	</insert>
+	
+	<!-- 플래너 장소 삭제 -->
+	<delete id="removePlan">
+		DELETE
+		FROM PLANNER_LOC
+		WHERE PLANNER_LOC_NUM = #{loc_memo_num}	
+	</delete>
+	
+	<!-- 플래너 메모 삭제 -->
+	<delete id="removeMemo">
+		DELETE
+		FROM PLANNER_MEMO
+		WHERE PLANNER_MEMO_NUM = #{loc_memo_num}	
+	</delete>
+	
+	<!-- 레디 풀기 -->
+	<update id="changeReady">
+		UPDATE ONGOING
+		SET READY = NULL
+		WHERE MEM_JOIN_NUM IN 
+		                    (SELECT G.MEM_JOIN_NUM
+		                    FROM ONGOING G, MEM_JOIN J, BUILD_ROOM BR
+		                    WHERE G.MEM_JOIN_NUM = J.MEM_JOIN_NUM(+)
+		                      AND J.ROOM_NUM = BR.ROOM_NUM(+)
+		                      AND BR.ROOM_NUM=#{room_num})	
+	</update>
+	
+	<!-- 방장패스 추가 -->
+	<insert id="addHostPass">
+		INSERT INTO HOST_PASS(HOST_PASS_NUM, ROOM_NUM, DAY, PASS_DATE)
+		VALUES('HO-PA-'||LPAD(HOST_PASS_SEQ.NEXTVAL,5,0),#{room_num},${day},SYSDATE)		
+	</insert>
+	
+	<!-- 방장패스 여부 특정일자 -->
+	<select id="isHostPassDay" resultType="Integer">
+		SELECT COUNT(*) AS COUNT
+		FROM HOST_PASS
+		WHERE ROOM_NUM = #{room_num}
+		  AND DAY = ${day}
+	</select>
+		
+	<!-- 방장패스 삭제 -->
+	<delete id="removeHostPass">
+		DELETE		
+		FROM HOST_PASS
+		WHERE ROOM_NUM = #{room_num}
+		  AND DAY = ${day}
+	</delete>
+	
+	<!-- 방장이 일자별로 패스누른 내역 리스트 (모든 일자에 대해서 방장패스, 멤버패스, 픽스 여부값 들어있음 )-->
+	
+	<select id="hostpassList" resultType="com.final1.logic.RoomMemberDTO">
+	<![CDATA[
+		SELECT B.DAY AS DAY, B.HOSTCOUNT AS HOSTCOUNT ,NVL(E.COUNT,0) AS MEMPASSCOUNT, NVL(E.CHECKFIX,0) AS CHECKFIX,
+			 CASE  WHEN NVL(E.COUNT,0) >0 THEN 'CANNOTDEL' ELSE 'CANDEL' END AS PASSDELCHECK
+	    FROM
+	    (
+	            SELECT A.DAY AS DAY, A.COUNT AS COUNT, COUNT(FIX_NUM) AS CHECKFIX
+			    FROM (SELECT HP.DAY, COUNT(MP.MEM_PASS_NUM) AS COUNT
+			    FROM MEM_PASS MP JOIN HOST_PASS HP
+			    ON MP.HOST_PASS_NUM = HP.HOST_PASS_NUM
+			    JOIN ONGOING OG
+			    ON OG.MEM_JOIN_NUM = MP.MEM_JOIN_NUM
+			    WHERE MP.HOST_PASS_NUM IN (SELECT HOST_PASS_NUM FROM HOST_PASS WHERE ROOM_NUM = #{room_num})
+			    GROUP BY HP.DAY)A
+			    LEFT JOIN (SELECT * FROM FIX WHERE ROOM_NUM =#{room_num}) F
+			    ON A.DAY = F.DAY
+			    GROUP BY A.DAY, A.COUNT
+	        
+	    )E
+	    RIGHT JOIN
+        (
+            SELECT A.DAY AS DAY, NVL(COUNT(HOST_PASS_NUM),0) AS HOSTCOUNT
+	        FROM
+	        (SELECT LEVEL AS DAY 
+	        FROM DUAL
+	        CONNECT BY LEVEL <= (SELECT TRIP_END_DATE - TRIP_START_DATE +1 AS DAY
+	                                FROM BUILD_ROOM
+	                                WHERE ROOM_NUM =#{room_num}))A 
+	        LEFT JOIN (SELECT * FROM HOST_PASS WHERE ROOM_NUM = #{room_num}) HP
+	        ON A.DAY = HP.DAY
+	        GROUP BY A.DAY
+        )B
+	    ON B.DAY = E.DAY
+	    ORDER BY 1
+	]]>
+	</select> 
+	
+	<!-- 멤버가 일자별로 패스누른 내역 리스트(모든 일자에 대해서 방장패스, 특정 사람에 대한 패스 여부, 픽스 여부 값 있음) -->
+	
+	<select id="memPassList" resultType="com.final1.logic.RoomMemberDTO">
+	<![CDATA[
+		SELECT C.DAY AS DAY, C.HOSTCOUNT AS hostCount, NVL(ISFIX.CHECKFIX,0) AS CHECKFIX, COUNT(B.MEM_PASS_NUM) AS MEMCOUNT
+		FROM
+		(
+		    select MP.MEM_PASS_NUM AS MEM_PASS_NUM, HP.DAY AS DAY
+		    FROM MEM_PASS MP JOIN HOST_PASS HP
+		    ON MP.HOST_PASS_NUM = HP.HOST_PASS_NUM
+		    WHERE MP.MEM_JOIN_NUM = (SELECT MAX(MEM_JOIN_NUM) FROM 
+		                            MEM_JOIN WHERE ID_NUM =#{my_id} AND ROOM_NUM = #{room_num})
+		)B
+		RIGHT JOIN (SELECT A.DAY AS DAY, NVL(COUNT(HOST_PASS_NUM),0) AS HOSTCOUNT
+		        FROM
+		        (SELECT LEVEL AS DAY 
+		        FROM DUAL
+		        CONNECT BY LEVEL <= (SELECT TRIP_END_DATE - TRIP_START_DATE +1 AS DAY
+		                                FROM BUILD_ROOM
+		                                WHERE ROOM_NUM = #{room_num}))A 
+		        LEFT JOIN (SELECT * FROM HOST_PASS WHERE ROOM_NUM =#{room_num}) HP
+		        ON A.DAY = HP.DAY
+		        GROUP BY A.DAY
+		        )C
+		ON C.DAY = B.DAY
+		JOIN (SELECT B.DAY AS DAY, B.HOSTCOUNT,NVL(E.COUNT,0) AS MEMPASSCOUNT, E.CHECKFIX AS CHECKFIX
+		    FROM
+		    (
+		        
+		            SELECT A.DAY AS DAY, A.COUNT AS COUNT, COUNT(FIX_NUM) AS CHECKFIX
+                    FROM (
+                        SELECT HP.DAY, COUNT(MP.MEM_PASS_NUM) AS COUNT
+                        FROM MEM_PASS MP JOIN HOST_PASS HP
+                        ON MP.HOST_PASS_NUM = HP.HOST_PASS_NUM
+                        WHERE MP.HOST_PASS_NUM IN (SELECT HOST_PASS_NUM FROM HOST_PASS WHERE ROOM_NUM = #{room_num})
+                        GROUP BY HP.DAY)A
+                    LEFT JOIN (SELECT * FROM FIX WHERE ROOM_NUM = #{room_num}) F
+                    ON A.DAY = F.DAY
+                    GROUP BY A.DAY, A.COUNT
+		        
+		    )E
+		    RIGHT JOIN (
+                        SELECT A.DAY AS DAY, NVL(COUNT(HOST_PASS_NUM),0) AS HOSTCOUNT
+                        FROM
+                        (
+                            SELECT LEVEL AS DAY 
+                            FROM DUAL
+                            CONNECT BY LEVEL <= (SELECT TRIP_END_DATE - TRIP_START_DATE +1 AS DAY
+                                                    FROM BUILD_ROOM
+                                                    WHERE ROOM_NUM =  #{room_num})
+                        )A 
+                        LEFT JOIN (SELECT * FROM HOST_PASS WHERE ROOM_NUM =  #{room_num}) HP
+                        ON A.DAY = HP.DAY
+                        GROUP BY A.DAY
+                        )B
+		    
+            ON B.DAY = E.DAY
+            ORDER BY 1 )ISFIX
+		ON C.DAY = ISFIX.DAY
+		GROUP BY  C.DAY, C.HOSTCOUNT, ISFIX.CHECKFIX
+		ORDER BY 1
+	]]>
+	</select>
+	
+	<!-- 멤버가 특정일자에 패스 여부 확인 -->
+	<select id="isMemPass" resultType="Integer">
+	<![CDATA[
+		SELECT COUNT(MEM_PASS_NUM) AS memCount
+		FROM
+		(
+		    select *
+		    FROM MEM_PASS MP JOIN HOST_PASS HP
+		    ON MP.HOST_PASS_NUM = HP.HOST_PASS_NUM
+		    WHERE MP.MEM_JOIN_NUM = (SELECT MAX(MEM_JOIN_NUM) FROM 
+		    						MEM_JOIN WHERE ID_NUM = #{my_id} AND ROOM_NUM = #{room_num})
+		)B
+		RIGHT JOIN (SELECT A.DAY AS DAY, NVL(COUNT(HOST_PASS_NUM),0) AS HOSTCOUNT
+		        FROM
+		        (SELECT LEVEL AS DAY 
+		        FROM DUAL
+		        CONNECT BY LEVEL <= (SELECT TRIP_END_DATE - TRIP_START_DATE +1 AS DAY
+		                                FROM BUILD_ROOM
+		                                WHERE ROOM_NUM = #{room_num}))A 
+		        LEFT JOIN (SELECT * FROM HOST_PASS WHERE ROOM_NUM = #{room_num}) HP
+		        ON A.DAY = HP.DAY
+		        GROUP BY A.DAY
+		        )C
+		ON C.DAY = B.DAY
+		GROUP BY C.DAY, C.HOSTCOUNT
+		HAVING C.DAY = ${day}
+		ORDER BY 1
+	]]>
+	</select>
+	
+	<!-- 멤버패스 추가 -->
+	<insert id="addMemPass">
+		INSERT INTO MEM_PASS(MEM_PASS_NUM, MEM_JOIN_NUM, HOST_PASS_NUM, PASS_DATE) VALUES
+		(CONCAT('MEM_PASS-',LPAD(MEM_PASS_SEQ.NEXTVAL,5,0)),(SELECT MAX(MEM_JOIN_NUM) FROM
+		 MEM_JOIN WHERE ID_NUM = #{my_id} AND ROOM_NUM = #{room_num}),
+		 (SELECT MAX(HOST_PASS_NUM) FROM HOST_PASS WHERE ROOM_NUM =#{room_num} AND DAY = #{day})
+		 ,SYSDATE)
+	</insert>
+	
+	<!-- 멤버패스 삭제 -->
+	<delete id="removeMemPass">
+		DELETE
+		FROM MEM_PASS
+		WHERE MEM_JOIN_NUM = (SELECT MAX(MEM_JOIN_NUM) FROM MEM_JOIN 
+		WHERE ID_NUM = #{my_id} AND ROOM_NUM = #{room_num})
+		AND HOST_PASS_NUM = (SELECT HOST_PASS_NUM FROM HOST_PASS
+		 WHERE DAY =#{day} AND ROOM_NUM =#{room_num} )
+	</delete>
+	
+	<!-- 특정 날짜에 픽스 여부 확인 -->
+	<select id="isFix" resultType="String">
+	<![CDATA[
+	    SELECT CASE COUNT(*) WHEN 1 THEN 'FIX' ELSE 'NOFIX' END AS CHECKFIX
+		FROM FIX
+		WHERE ROOM_NUM = #{room_num}
+		AND DAY =#{day}
+	]]>
+	</select>
+	
+	<!--  픽스 테이블 insert -->
+	<insert id="addFix">
+		 INSERT INTO FIX(FIX_NUM, ROOM_NUM, DAY, FIX_DATE) VALUES(CONCAT('FIX-',LPAD(FIX_SEQ.NEXTVAL,5,0))
+    	,#{room_num},#{day},SYSDATE)
+	</insert>
+	
+	<!-- 패스현황 : 방장 닉네임, 사진 -->
+	<select id="hostPassCheck" resultType="com.final1.logic.RoomMemberDTO">
+		SELECT DISTINCT M.NIKNAME AS NICKNAME, M.PHOTO AS PHOTO
+		FROM HOST_PASS HP JOIN BUILD_ROOM B
+		ON HP.ROOM_NUM = B.ROOM_NUM
+		JOIN MEMBER M
+		ON B.ID_NUM = M.ID_NUM
+		WHERE B.ROOM_NUM =#{room_num}
+	</select>
+	
+	<!-- 패스현황: 멤버 닉네임, 사진, 패스여부 -->
+	<select id="memPassCheck" resultType="com.final1.logic.RoomMemberDTO">
+		SELECT B.NIKNAME AS NICKNAME, B.PHOTO AS PHOTO
+        ,CASE COUNT(A.MEM_PASS_NUM) WHEN 1 THEN 'PASS' ELSE 'NOPASS' END AS CHECKPASS
+		FROM 
+		(
+		    SELECT *
+		    FROM MEM_PASS MP JOIN HOST_PASS HP
+		    ON MP.HOST_PASS_NUM = HP.HOST_PASS_NUM
+		    JOIN ONGOING OG
+		    ON OG.MEM_JOIN_NUM = MP.MEM_JOIN_NUM
+		    JOIN MEM_JOIN MJ
+		    ON OG.MEM_JOIN_NUM = MJ.MEM_JOIN_NUM
+		    JOIN MEMBER M
+		    ON M.ID_NUM = MJ.ID_NUM
+		    WHERE DAY=#{day} AND HP.ROOM_NUM = #{room_num}
+		)A
+		RIGHT JOIN
+		(
+		    SELECT OG.MEM_JOIN_NUM AS MEM_JOIN_NUM, M.NIKNAME AS NIKNAME, M.PHOTO AS PHOTO
+		    FROM ONGOING OG JOIN MEM_JOIN MJ
+		    ON OG.MEM_JOIN_NUM = MJ.MEM_JOIN_NUM
+		    JOIN MEMBER M
+		    ON M.ID_NUM = MJ.ID_NUM
+		    WHERE ROOM_NUM =#{room_num}
+		)B
+		ON A.MEM_JOIN_NUM = B.MEM_JOIN_NUM
+		WHERE B.NIKNAME NOT IN(SELECT DISTINCT M.NIKNAME
+		                        FROM HOST_PASS HP JOIN BUILD_ROOM B
+		                        ON HP.ROOM_NUM = B.ROOM_NUM
+		                        JOIN MEMBER M
+		                        ON B.ID_NUM = M.ID_NUM
+		                        WHERE B.ROOM_NUM =#{room_num})
+		GROUP BY B.NIKNAME,B.PHOTO
+	</select>
+	
+	<!-- 방 삭제일 추가 -->
+	<update id="roomDel">
+		UPDATE BUILD_ROOM
+		SET ROOM_DEL_DATE = TO_DATE(SYSDATE,'YYYY-MM-DD')
+		WHERE ROOM_NUM = #{room_num}
+	</update>
+	
+	<!-- 방 참여중 멤버 확인 -->
+	<select id="ongoingMemCheck" resultType="String">
+		SELECT MJ.MEM_JOIN_NUM
+		FROM ONGOING OG JOIN MEM_JOIN MJ
+		ON OG.MEM_JOIN_NUM = MJ.MEM_JOIN_NUM
+		WHERE MJ.ROOM_NUM = #{room_num}
+	</select>
+	
+	<!--방 참여중 멤버 삭제 -->
+	<delete id="ongoingDel">
+		DELETE 
+		FROM ONGOING
+		WHERE ONGOING_NUM IN(select ONGOING_NUM
+							FROM ONGOING OG JOIN MEM_JOIN MJ
+							ON OG.MEM_JOIN_NUM = MJ.MEM_JOIN_NUM
+							WHERE MJ.ROOM_NUM = #{room_num})
+	</delete>
+	
+	<!-- 퇴장 멤버 추가 -->
+	<insert id="roomDelExit">
+		INSERT INTO EXIT(EXIT_NUM, MEM_JOIN_NUM,EXIT_REASON_NUM
+		, EXIT_DATE, ALARM_CHECK_DATE) VALUES(CONCAT('EXIT-',LPAD(EXIT_SEQ.NEXTVAL,5,0))
+		,#{mem_join_num}, 3, SYSDATE, NULL)
+	</insert>
+	
+	
+	<!-- 해당 방 픽스 갯수  -->
+	<select id="fixCount" resultType="Integer">
+		 SELECT COUNT(*) AS COUNT
+	    FROM FIX
+	    WHERE ROOM_NUM = #{room_num}
+	</select>
+	
+	<!-- 플래너 장소 수정 -->	
+	<update id="modiPlace">
+		UPDATE PLANNER_LOC
+		SET MAP_LAT = #{map_lat}, MAP_LNG = #{map_lng}, LOC_NAME = #{loc_content}
+		WHERE PLANNER_LOC_NUM = #{loc_memo_num}
+	</update>
+	
+	<!-- 메모 수정 -->
+	<update id="modiMemo">
+		UPDATE PLANNER_MEMO
+		SET CONTENT = #{loc_content}
+		WHERE PLANNER_MEMO_NUM = #{loc_memo_num}
+	</update>
+	
+	<select id="menuBarInfo" resultType="com.final1.logic.RoomMemberDTO">
+		SELECT PHOTO, NIKNAME
+		FROM MEMBER
+		WHERE ID_NUM = #{my_id}
+	</select>
+	
+	<!-- 북마크 삭제 -->
+	<delete id="bookmarkDel">
+		DELETE
+		FROM BOOKMARK
+		WHERE ROOM_NUM = #{room_num}
+	</delete>
+	
+	<select id="searchRoom" resultType="com.final1.logic.RoomDTO">
+		SELECT ROOM_NUM, ID_NUM, PLAN_NUM, PLAN, MONEY_OPTION_NUM, MONEY_OPTION, STAY_TYPE_NUM, STAY_TYPE
+     		 , TRAFFIC_NUM, TRAFFIC, CYCLE_NUM, CYCLE, PACE_NUM, PACE, DESTI_TYPE_NUM, DESTI_TYPE
+		     , TO_DO_NUM, TO_DO, TO_SEE_NUM, TO_SEE, FOOD_NUM, FOOD, MEAL_COUNT_NUM, MEAL_COUNT, SUPPLY_NUM, SUPPLY
+		     , PHOTO_NUM, PHOTO, REGION_NUM, REGION, PLAN_ONOFF_NUM, PLAN_ONOFF, GENDER_LIMIT_NUM, GENDER_LIMIT
+		     , AGE_LIMIT_NUM, AGE_LIMIT, TO_CHAR(TRIP_START_DATE, 'YYYY-MM-DD') AS TRIP_START_DATE
+		     , TO_CHAR(TRIP_END_DATE, 'YYYY-MM-DD') AS TRIP_END_DATE, MEM_MAX, ROOM_BUILD_DATE, ROOM_TITLE
+		     , BUDGET, START_LOC_NAME, START_LOC_LAT, START_LOC_LNG, START_LOC_DATE, FINAL_GO_DATE, ROOM_DEL_DATE
+		FROM ROOMLIST_VIEW
+		WHERE ROOM_NUM = #{room_num}
+	</select>
+	
+	<update id="modifyRoom">
+		UPDATE BUILD_ROOM
+		SET PLAN_NUM = TO_NUMBER(#{plan_num}), MONEY_OPTION_NUM = TO_NUMBER(#{money_option_num})
+		  , STAY_TYPE_NUM = TO_NUMBER(#{stay_type_num}), TRAFFIC_NUM = TO_NUMBER(#{traffic_num})
+		  , CYCLE_NUM = TO_NUMBER(#{cycle_num}), PACE_NUM = TO_NUMBER(#{pace_num}), DESTI_TYPE_NUM = TO_NUMBER(#{desti_type_num})
+		  , TO_DO_NUM = TO_NUMBER(#{to_do_num}), TO_SEE_NUM = TO_NUMBER(#{to_see_num}), FOOD_NUM = TO_NUMBER(#{food_num})
+		  , MEAL_COUNT_NUM = TO_NUMBER(#{meal_count_num}), SUPPLY_NUM = TO_NUMBER(#{supply_num})
+		  , PHOTO_NUM = TO_NUMBER(#{photo_num}), REGION_NUM = (SELECT REGION_NUM FROM REGION WHERE NAME = #{region_num})
+		  , ROOM_TITLE = #{room_title}, BUDGET = #{budget}
+		  , START_LOC_LAT = #{start_loc_lat}, START_LOC_LNG = #{start_loc_lng}, START_LOC_DATE = #{start_loc_date}
+		  , START_LOC_NAME = #{start_loc_name}
+		WHERE ROOM_NUM = #{room_num}
+	</update>
+	
+	
+	<!-- 내 참여인원 번호 찾기 -->
+	<select id="findJoinNum" resultType="java.lang.String">
+		SELECT 'MEM-JOIN-' || LPAD(NUM,5,0)
+		FROM
+		(
+			SELECT TO_CHAR(MAX(TO_NUMBER(SUBSTR(MEM_JOIN_NUM,10,5)))) AS NUM
+			FROM MEM_JOIN
+			WHERE ROOM_NUM = #{room_num}
+		  	  AND ID_NUM = #{my_id}
+		)	
+	</select>
+	
+	
+	<!-- 컬렉션 전체 출력 -->
+	<select id="collectionList" resultType="com.final1.logic.PlannerLocMemoDTO">
+		SELECT LOC_MEMO_NUM, MEM_JOIN_NUM, LOC_CONTENT, MAP_LAT, MAP_LNG, WRITE_DATE
+		FROM
+		(
+		    SELECT COLLECTION_LOC_NUM AS LOC_MEMO_NUM, MEM_JOIN_NUM, LOC_NAME AS LOC_CONTENT, MAP_LAT, MAP_LNG, WRITE_DATE
+		    FROM COLLECTION_LOC
+		    WHERE MEM_JOIN_NUM IN ( SELECT G.MEM_JOIN_NUM
+		                            FROM ONGOING G, MEM_JOIN J, BUILD_ROOM BR
+		                            WHERE G.MEM_JOIN_NUM = J.MEM_JOIN_NUM(+)
+		                              AND J.ROOM_NUM = BR.ROOM_NUM(+)
+		                              AND BR.ROOM_NUM= #{room_num} )
+		    UNION ALL
+		    SELECT COLLECTION_MEMO_NUM, MEM_JOIN_NUM, CONTENT, NULL,  NULL, WRITE_DATE
+		    FROM COLLECTION_MEMO
+		    WHERE MEM_JOIN_NUM IN ( SELECT G.MEM_JOIN_NUM
+		                            FROM ONGOING G, MEM_JOIN J, BUILD_ROOM BR
+		                            WHERE G.MEM_JOIN_NUM = J.MEM_JOIN_NUM(+)
+		                              AND J.ROOM_NUM = BR.ROOM_NUM(+)
+		                              AND BR.ROOM_NUM= #{room_num} )
+		)
+		ORDER BY WRITE_DATE
+	</select>
+	
+	
+	<!-- 내 컬렉션 출력 -->
+	<select id="myCollectionList" resultType="com.final1.logic.PlannerLocMemoDTO">
+		SELECT LOC_MEMO_NUM, MEM_JOIN_NUM, LOC_CONTENT, MAP_LAT, MAP_LNG, WRITE_DATE
+		FROM
+		(
+		    SELECT COLLECTION_LOC_NUM AS LOC_MEMO_NUM, MEM_JOIN_NUM, LOC_NAME AS LOC_CONTENT, MAP_LAT, MAP_LNG, WRITE_DATE
+		    FROM COLLECTION_LOC
+		    WHERE MEM_JOIN_NUM IN ( SELECT 'MEM-JOIN-' || LPAD(NUM,5,0)
+	                           		FROM
+	                           		(
+	                           			SELECT TO_CHAR(MAX(TO_NUMBER(SUBSTR(MEM_JOIN_NUM,10,5)))) AS NUM
+	                           			FROM MEM_JOIN
+	                           			WHERE ROOM_NUM = #{room_num}
+	                           		  	  AND ID_NUM = #{my_id}
+	                           		)
+	                           	  )
+		    UNION ALL
+		    SELECT COLLECTION_MEMO_NUM, MEM_JOIN_NUM, CONTENT, NULL,  NULL, WRITE_DATE
+		    FROM COLLECTION_MEMO
+		    WHERE MEM_JOIN_NUM IN ( SELECT 'MEM-JOIN-' || LPAD(NUM,5,0)
+	                           		FROM
+	                           		(
+	                           			SELECT TO_CHAR(MAX(TO_NUMBER(SUBSTR(MEM_JOIN_NUM,10,5)))) AS NUM
+	                           			FROM MEM_JOIN
+	                           			WHERE ROOM_NUM = #{room_num}
+	                           		  	  AND ID_NUM = #{my_id}
+	                           		)
+	                           	  )
+		)
+		ORDER BY WRITE_DATE
+	</select>
+
+	<!-- 컬렉션 메모 추가 -->
+	<insert id="addMemoCollection">
+		INSERT INTO COLLECTION_MEMO(COLLECTION_MEMO_NUM, CONTENT, WRITE_DATE, MEM_JOIN_NUM)
+		VALUES('COLLECT-MEMO-'|| LPAD(COLLECTION_MEMO_SEQ.NEXTVAL,5,0), #{content}, SYSDATE
+		, (SELECT 'MEM-JOIN-' || LPAD(NUM,5,0)
+		FROM
+		(
+		SELECT TO_CHAR(MAX(TO_NUMBER(SUBSTR(MEM_JOIN_NUM,10,5)))) AS NUM
+		FROM MEM_JOIN
+		WHERE ROOM_NUM = #{room_num}
+		  AND ID_NUM = #{my_id}
+		)))	
+	</insert>
+	
+	<!-- 컬렉션 장소 추가 -->
+	<insert id="addCollection">
+		INSERT INTO COLLECTION_LOC(COLLECTION_LOC_NUM, MAP_LAT, MAP_LNG, LOC_NAME, WRITE_DATE, MEM_JOIN_NUM)
+		VALUES('COLLECT-LOC-'|| LPAD(COLLECTION_LOC_SEQ.NEXTVAL,5,0), #{lat}, #{lng}, #{title}, SYSDATE
+		, (SELECT 'MEM-JOIN-' || LPAD(NUM,5,0)
+		FROM
+		(
+		SELECT TO_CHAR(MAX(TO_NUMBER(SUBSTR(MEM_JOIN_NUM,10,5)))) AS NUM
+		FROM MEM_JOIN
+		WHERE ROOM_NUM = #{room_num}
+		  AND ID_NUM = #{my_id}
+		)))
+	</insert>
+	
+	<!-- 컬렉션 장소 삭제 -->
+	<delete id="removeCollection">
+		DELETE
+		FROM COLLECTION_LOC
+		WHERE COLLECTION_LOC_NUM = #{loc_memo_num}	
+	</delete>
+	
+	<!-- 컬렉션 메모 삭제 -->
+	<delete id="removeCollectionMemo">
+		DELETE
+		FROM COLLECTION_MEMO
+		WHERE COLLECTION_MEMO_NUM = #{loc_memo_num}	
+	</delete>
+	
+	<!-- 컬렉션 장소 수정 -->
+	<update id="modifyCollection">
+		UPDATE COLLECTION_LOC
+		SET MAP_LAT = #{map_lat}, MAP_LNG = #{map_lng}, LOC_NAME = #{loc_content}
+		WHERE COLLECTION_LOC_NUM = #{loc_memo_num}
+	</update>
+	
+	<!-- 컬렉션 메모 수정 -->
+	<update id="modifyCollectionMemo">
+		UPDATE COLLECTION_MEMO
+		SET CONTENT = #{loc_content}
+		WHERE COLLECTION_MEMO_NUM = #{loc_memo_num}
+	</update>
+	
+	<!-- 체크리스트 출력 -->
+	<select id="myCheckList" resultType="com.final1.logic.CollectionDTO">
+		SELECT *
+		FROM
+		(
+		SELECT CHECKLIST_DEFAULT.CHECKLIST_DEFAULT_NUM CHKLIST_NUM, CHECKLIST_DEFAULT.CONTENT CHKLIST_CNT
+		FROM CHECKLIST_DEFAULT
+		UNION ALL
+		SELECT CHECKLIST_ADD.CHECKLIST_ADD_NUM CHKLIST_NUM, CHECKLIST_ADD.CONTENT CHKLIST_CNT
+		FROM CHECKLIST_ADD
+		WHERE MEM_JOIN_NUM = (SELECT MAX(MEM_JOIN_NUM)
+		                   FROM MEM_JOIN
+		                   WHERE ID_NUM=#{my_id, jdbcType=VARCHAR} AND ROOM_NUM=#{room_num, jdbcType=VARCHAR})
+		)
+		ORDER BY CHKLIST_NUM	
+	</select>
+	<!-- 체크리스트 삭제 -->
+	<delete id="deleteCheckList">
+		DELETE
+		FROM CHECKLIST_ADD
+		WHERE MEM_JOIN_NUM=(SELECT MAX(MEM_JOIN_NUM)
+		                   FROM MEM_JOIN
+		                   WHERE ID_NUM=#{my_id, jdbcType=VARCHAR} AND ROOM_NUM=#{room_num, jdbcType=VARCHAR})
+		AND CHECKLIST_ADD_NUM=#{chklist_num, jdbcType=VARCHAR}
+	</delete>
+	
+	<!-- 체크리스트 입력 -->
+	<insert id="insertCheckList" >
+		INSERT INTO CHECKLIST_ADD(CHECKLIST_ADD_NUM, MEM_JOIN_NUM, CONTENT)
+		VALUES(CONCAT('CHK-ADD-',LPAD(CHECKLIST_ADD_SEQ.NEXTVAL,5,0))
+			, (SELECT MAX(MEM_JOIN_NUM) FROM MEM_JOIN WHERE ROOM_NUM = #{room_num} AND ID_NUM =#{my_id})
+		    , #{chklist_cnt, jdbcType=VARCHAR})	
+	</insert>
+	
+	<!-- 투표 -->
+	<select id="voteslist" resultType="com.final1.logic.VotesDTO">
+		SELECT *
+		FROM VOTE
+		WHERE ROOM_NUM=#{room_num, jdbcType=VARCHAR}
+	</select>
+	
+	<!-- 투표 본문 -->
+	<select id="votecatelist" resultType="com.final1.logic.VoteCateDTO">
+		SELECT COUNT(*), VOTE_CATEGORY_NUM
+		FROM MEM_VOTE
+		GROUP BY VOTE_CATEGORY_NUM
+		HAVING VOTE_CATEGORY_NUM IN (SELECT VOTE_CATEGORY_NUM
+		                            FROM VOTE_CATEGORY
+		                            WHERE VOTE_NUM=#{vote_num, jdbcType=VARCHAR})
+	</select>
+	
+	
+	
+	
+	
+	
+	<!-- ★ -->
+	<!-- 방장 패스 알람 추가 -->
+	<insert id="hostPassAlarmAdd">
+		INSERT INTO HOST_PASS_ALARM(HOST_PASS_ALARM_NUM, HOST_PASS_NUM, MEM_JOIN_NUM, ALARM_CHECK_DATE) 
+		VALUES(CONCAT('HO-PA-ARM-',LPAD(HOST_PASS_ALARM_SEQ.NEXTVAL,5,0)),(SELECT MAX(HOST_PASS_NUM) FROM HOST_PASS WHERE ROOM_NUM = #{room_num} ),
+		#{mem_join_num},NULL)
+	</insert>
+	<!-- ★ -->
+	<!-- 해당 방 ONGOING MEM_JOIN_NUM 모두 얻기-->
+	<select id="ogMemJoin" resultType="String">
+		SELECT OG.MEM_JOIN_NUM as mem_join_num
+         FROM ONGOING OG, MEM_JOIN MJ
+         WHERE OG.MEM_JOIN_NUM = MJ.MEM_JOIN_NUM
+         AND MJ.ROOM_NUM = #{room_num}
+	</select>
+	<!-- ★ -->
+	<!-- 북마크 내역 -->
+	<select id="bookMarkList" resultType="com.final1.logic.BookMarkDTO">
+		SELECT MAX(B.BOOKMARK_NUM) AS bookMarkNum, ID_NUM as idNum
+		FROM BOOKMARK B JOIN MEMBER M
+		ON B.MEM_NUM = M.MEM_NUM
+		WHERE B.ROOM_NUM = #{room_num}
+		GROUP BY ID_NUM
+	</select>
+	<!-- ★ -->
+	<!-- 북마크 알람 추가 -->
+	<insert id="bookMarkAlarm">
+		INSERT INTO BOOKMARK_ALARM(BOOKMARK_ALARM_NUM, BOOKMARK_NUM, ALARM_CHECK_DATE, ALARM_ADD_DATE) 
+		VALUES(CONCAT('MARK-ARM-',LPAD(BOOKMARK_ALARM_SEQ.NEXTVAL,5,0)),#{bookMarkNum},NULL,SYSDATE)
+	</insert>
+	<!-- ★ -->
+	<!-- 방장 출발 알람 추가 -->
+	<insert id="goAlarm">
+		INSERT INTO GO_ALARM VALUES(CONCAT('GO-ALARM-',LPAD(GO_ALARM_SEQ.nextval,5,0)), #{room_num},NULL, SYSDATE)
+	</insert>
+	<!-- ★ -->
+	<!-- 올픽스 여부 확인 -->
+	<select id="allFix" resultType="Integer">
+		SELECT CASE  WHEN A.COUNT = (SELECT TRIP_END_DATE - TRIP_START_DATE +1 AS DAY
+                                                    FROM BUILD_ROOM
+                                                    WHERE ROOM_NUM = #{room_num}) THEN 1 ELSE 0 END ALLFIX
+		FROM
+		(
+	        SELECT COUNT(*) AS COUNT
+		    FROM FIX
+		    WHERE ROOM_NUM =  #{room_num}
+		)A
+	</select>
+	
+	<!-- ★ -->
+	<!-- 여행점수 부여 메이트 정보 (로그인계정제외) -->
+	<select id="tripScoreMate" resultType="com.final1.logic.RoomMemberDTO">
+		SELECT MF.MEM_FINISH_NUM AS MEM_FINISH_NUM, MJ.MEM_JOIN_NUM AS MEM_JOIN_NUM, M.NIKNAME AS NICKNAME
+		FROM MEM_FINISH MF JOIN MEM_JOIN MJ
+		ON MF.MEM_JOIN_NUM = MJ.MEM_JOIN_NUM
+		JOIN MEMBER M
+		ON MJ.ID_NUM = m.id_num 
+		WHERE MJ.ROOM_NUM = #{room_num}
+		 AND M.ID_NUM != #{my_id}
+	   	 AND MEM_FINISH_NUM NOT IN (SELECT TAKE_MEM_FINISH_NUM
+                                      FROM TRIP_SCORE)
+	</select>
+	<!-- ★ -->
+	<insert id="tripScoreAdd">
+		INSERT INTO TRIP_SCORE(TRIP_SCORE_NUM, GIVE_MEM_FINISH_NUM, TAKE_MEM_FINISH_NUM, SCORE_DATE, SCORE)
+		VALUES(CONCAT('TRIP-SCORE-', LPAD(TRIP_SCORE_SEQ.NEXTVAL, 5, 0))
+		, (SELECT mem_finish_num FROM MEM_FINISH MF WHERE MEM_JOIN_NUM = #{give_mem_join_num})
+		, #{mem_finish_num}, SYSDATE, ${score})
+	</insert>
+	
+	<!-- ★ -->
+	<!-- 완료된 멤버 수 세기 -->
+	<select id="finMemCount" resultType="Integer">
+		SELECT COUNT(*)
+		FROM MEM_FINISH MF JOIN MEM_JOIN MJ
+		ON MF.MEM_JOIN_NUM = MJ.MEM_JOIN_NUM
+		JOIN MEMBER M
+		ON MJ.ID_NUM = m.id_num 
+		WHERE MJ.ROOM_NUM = #{room_num}
+		 AND M.ID_NUM != #{my_id}
+	</select>
+	
+	<!-- ★ -->
+	<!-- 여행 점수 준 멤버 수 세기 -->
+	<select id="tsCount" resultType="Integer">
+		SELECT COUNT(*)
+		 FROM TRIP_SCORE TS JOIN MEM_FINISH MF 
+		 ON ts.give_mem_finish_num = MF.MEM_FINISH_NUM
+		 JOIN MEM_JOIN MJ
+		ON MF.MEM_JOIN_NUM = MJ.MEM_JOIN_NUM
+		JOIN MEMBER M
+		ON MJ.ID_NUM = m.id_num 
+		WHERE MJ.ROOM_NUM = #{room_num}
+		AND M.ID_NUM = #{my_id}
+	</select>
+	
+	<!-- 강제퇴장 여부 확인 -->
+	<select id="exitCount" resultType="Integer">
+		SELECT COUNT(*) AS COUNT
+		FROM EXIT E JOIN MEM_JOIN MJ
+		ON E.MEM_JOIN_NUM = MJ.MEM_JOIN_NUM
+		WHERE EXIT_REASON_NUM = 2
+		AND ROOM_NUM = #{room_num}
+		AND ID_NUM = #{my_id}
+	</select>
+	
+	<select id="plannerLocMemoSel" resultType="com.final1.logic.RoomMemberDTO">
+        SELECT A.LOC_MEMO_NUM AS LOC_MEMO_NUM, A.ROOM_NUM AS ROOM_NUM, A.DAY AS DAY, A.SEQUENCE AS SEQUENCE, A.LOC_CONTENT AS LOC_CONTENT
+       , LAG(A.LOC_MEMO_NUM) OVER (ORDER BY A.SEQUENCE) AS PRENUM, LAG(A.SEQUENCE) OVER (ORDER BY A.SEQUENCE) AS PREORDER
+       ,  LEAD(A.LOC_MEMO_NUM) OVER (ORDER BY A.SEQUENCE) AS NEXTNUM, LEAD(A.SEQUENCE) OVER (ORDER BY A.SEQUENCE) AS NEXTORDER
+      FROM
+      (
+              SELECT PLANNER_LOC_NUM AS LOC_MEMO_NUM, ROOM_NUM, DAY, SEQUENCE, LOC_NAME AS LOC_CONTENT
+            FROM PLANNER_LOC
+            WHERE ROOM_NUM =#{room_num}
+            UNION ALL
+            SELECT PLANNER_MEMO_NUM, ROOM_NUM, DAY, SEQUENCE, CONTENT
+            FROM PLANNER_MEMO
+            WHERE ROOM_NUM =#{room_num}
+              ORDER BY DAY, SEQUENCE
+      
+      )A
+      WHERE A.DAY = ${day}
+      ORDER BY A.DAY, A.SEQUENCE
+   </select>
+	
+	<update id="plannerLocUpdate">
+		UPDATE PLANNER_LOC
+		SET SEQUENCE = #{sequence}
+		WHERE PLANNER_LOC_NUM = #{num}
+	</update>
+	
+	<update id="plannerMemoUpdate">
+		UPDATE PLANNER_MEMO
+		SET SEQUENCE = #{sequence}
+		WHERE PLANNER_MEMO_NUM = #{num}
+	</update>
+	
+</mapper>
+
+
+
+
+

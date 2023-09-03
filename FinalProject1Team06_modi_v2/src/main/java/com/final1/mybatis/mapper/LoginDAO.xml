@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.final1.logic.ILoginDAO">
+
+	 <select id="login" resultType="java.lang.Integer">
+	 	SELECT COUNT(*) AS COUNT
+		FROM MEMBER M JOIN MEM_REGI MR
+		ON M.ID_NUM = MR.ID_NUM
+		WHERE ID = #{id}
+		  AND PW = CRYPTPACK.ENCRYPT(#{pw},#{pw})
+	 </select>
+	 
+	 <select id="adminLogin" resultType="java.lang.Integer">
+	 	SELECT COUNT(*) AS COUNT
+		FROM ADMIN A JOIN MEM_REGI MR
+		ON A.ID_NUM = MR.ID_NUM
+		WHERE MR.ID = #{id}
+		  AND A.PW = CRYPTPACK.ENCRYPT(#{pw},#{pw})
+	 </select>
+	 
+	 <!-- 추가 -->
+	 <delete id="ongoingDel">
+	 	DELETE 
+		FROM ONGOING 
+		WHERE MEM_JOIN_NUM IN (SELECT OG.MEM_JOIN_NUM
+                               FROM ONGOING OG JOIN MEM_JOIN MJ
+                               ON OG.MEM_JOIN_NUM = MJ.MEM_JOIN_NUM
+                               JOIN BUILD_ROOM BR
+                               ON BR.ROOM_NUM = MJ.ROOM_NUM
+                               WHERE MJ.ID_NUM = (SELECT MR.ID_NUM FROM MEMBER M JOIN MEM_REGI MR ON m.id_num = MR.ID_NUM WHERE MR.ID=#{id} )
+                               <![CDATA[AND BR.TRIP_END_DATE < SYSDATE)]]>
+	 </delete>
+	
+</mapper>

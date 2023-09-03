@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.final1.logic.IFeedDAO">
+	
+	<!-- 피드 리스트 출력 -->
+	<select id="feedList" resultType="com.final1.logic.FeedDTO">
+		SELECT ROOMNUM, FEEDNUM, IDNUM, ID, NAME, PHOTO, NICKNAME, CONTENT, WRITEDATE, WRITETIME, COUNT
+		FROM FEED_VIEW
+		WHERE ROOMNUM = #{roomNum}
+		ORDER BY WRITETIME
+	</select>
+	
+	<!-- 내가 쓴 피드 -->
+	<select id="searchId" resultType="com.final1.logic.FeedDTO">
+		SELECT FEEDNUM, IDNUM, ID, NAME, PHOTO, NICKNAME, ROOMNUM
+		FROM 
+		(
+		    SELECT FEEDNUM, IDNUM, ID, NAME, PHOTO, NICKNAME, ROOMNUM
+		    FROM FEED_VIEW
+		    WHERE ID = #{id}
+		    AND ROOMNUM = #{roomNum}
+		    ORDER BY FEEDNUM DESC
+		)
+		WHERE ROWNUM = 1
+	</select>
+	
+	<!-- 방 참여 시 자동 삽입 -->
+	<!-- 추후 'MEM-JOIN-00039' 내용 변경 -->
+	<insert id="addContentInto">
+		INSERT INTO FEED(FEED_NUM, MEM_JOIN_NUM, CONTENT, WRITE_DATE)
+		VALUES (CONCAT('FEED-',LPAD(FEED_SEQ.NEXTVAL,5,0)), (SELECT MAX(MEM_JOIN_NUM) FROM MEM_JOIN MJ JOIN MEM_REGI MR ON MJ.ID_NUM = MR.ID_NUM WHERE MR.ID_NUM = #{idNum} AND MJ.ROOM_NUM = #{roomNum})
+      , (SELECT M.NIKNAME FROM MEMBER M JOIN MEM_REGI MR ON M.ID_NUM = MR.ID_NUM WHERE ID = #{id}) || ' 님이 입장하였습니다.', SYSDATE)
+	</insert>
+	
+	<!-- 방 퇴장 시 자동 삽입 -->
+	<insert id="addContentExit">
+		INSERT INTO FEED(FEED_NUM, MEM_JOIN_NUM, CONTENT, WRITE_DATE)
+		VALUES (CONCAT('FEED-',LPAD(FEED_SEQ.NEXTVAL,5,0)), (SELECT MAX(MEM_JOIN_NUM) FROM MEM_JOIN MJ JOIN MEM_REGI MR ON MJ.ID_NUM = MR.ID_NUM WHERE MR.ID_NUM = #{idNum} AND MJ.ROOM_NUM = #{roomNum})
+		, (SELECT NIKNAME FROM MEMBER WHERE ID_NUM = #{idNum}) || ' 님이 퇴장하였습니다.', SYSDATE)
+	</insert>
+	
+	<!-- 피드 작성 -->
+	<!-- 추후 'MEM-JOIN-00039' 내용 변경 -->
+	<insert id="addContent">
+		INSERT INTO FEED(FEED_NUM, MEM_JOIN_NUM, CONTENT, WRITE_DATE)
+		VALUES(CONCAT('FEED-', LPAD(FEED_SEQ.NEXTVAL,5,0)), (SELECT MAX(MEM_JOIN_NUM) FROM MEM_JOIN MJ JOIN MEM_REGI MR ON MJ.ID_NUM = MR.ID_NUM WHERE MR.ID_NUM = #{idNum} AND MJ.ROOM_NUM = #{roomNum})
+		, #{content}, SYSDATE)
+	</insert>
+	
+	<!-- 피드 삭제 -->
+	<delete id="removeContent">
+		DELETE
+		FROM FEED
+		WHERE FEED_NUM = #{feedNum}
+	</delete>
+	
+	<select id=""></select>
+	
+	
+</mapper>

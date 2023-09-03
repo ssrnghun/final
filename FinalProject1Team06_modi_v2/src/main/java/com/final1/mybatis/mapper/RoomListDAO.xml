@@ -1,0 +1,575 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.final1.logic.IRoomListDAO">
+
+	<!-- id = "해당 메소드명" resultType="반환데이터타입"-->
+	<!-- 아이디를 통해 아이디 NUM 을 알 수 있는 쿼리문 -->
+	<select id="selectIdNum" resultType="java.lang.String">
+		SELECT ID_NUM
+		FROM MEM_REGI
+		WHERE ID= #{id}
+	</select>
+	
+	<!--아이디 NUM 을 통해 MEM_NUM 을 알 수 있는 쿼리문  -->
+	<select id="selectMemNum" resultType="java.lang.String">
+		SELECT MEM_NUM
+		FROM MEMBER
+		WHERE ID_NUM= #{id_num}
+	</select>
+	
+	<!--  방 리스트 출력 쿼리문-->
+	<select id="list" resultType="com.final1.logic.RoomListDTO" parameterType="String">
+		SELECT RLV.*
+		     , CASE WHEN ROOM_NUM IN (SELECT ROOM_NUM
+		                              FROM PW_CODE)
+		       THEN 'YES' ELSE 'NO' END AS PW_CODE
+		     , CASE WHEN ROOM_NUM IN (SELECT J.ROOM_NUM
+		                              FROM ONGOING G LEFT JOIN MEM_JOIN J
+		                              ON G.MEM_JOIN_NUM = J.MEM_JOIN_NUM
+		                              WHERE J.ID_NUM = #{id_num})
+		       THEN 'YES' ELSE 'NO' END AS ONGOING
+		     , CASE WHEN ROOM_NUM IN (SELECT ROOM_NUM
+		                              FROM BOOKMARK
+		                              WHERE MEM_NUM = (SELECT MEM_NUM
+		                                              FROM MEMBER
+		                                              WHERE ID_NUM = #{id_num}))
+		       THEN 'YES' ELSE 'NO' END AS BOOKMARK       
+		FROM ROOM_LIST_VIEW RLV
+		WHERE FINAL_GO_DATE IS NULL
+		  AND ROOM_DEL_DATE IS NULL
+		  AND ROOM_NUM NOT IN ( SELECT J.ROOM_NUM
+		                        FROM ONGOING G LEFT JOIN MEM_JOIN J
+		                        ON G.MEM_JOIN_NUM = J.MEM_JOIN_NUM
+		                        WHERE ID_NUM IN (SELECT BLOCKED_ID_NUM
+		                                       FROM MEM_BLOCK
+		                                       WHERE BLOCKER_ID_NUM = #{id_num}))
+		  AND ROOM_NUM NOT IN ( SELECT J.ROOM_NUM
+		                        FROM ONGOING G LEFT JOIN MEM_JOIN J
+		                        ON G.MEM_JOIN_NUM = J.MEM_JOIN_NUM
+		                        WHERE ID_NUM IN (SELECT BLOCKER_ID_NUM
+		                                       FROM MEM_BLOCK
+		                                       WHERE BLOCKED_ID_NUM = #{id_num}))
+	   <!-- ORDER BY ${str}   -->
+	   <if test="sort == 2">
+	   		ORDER BY TRIP_START_DATE
+	   </if>   
+	</select>
+	
+	<!-- 여행스타일 모드 저장 -->
+	<insert id = "modeAdd" parameterType="java.lang.String">
+		INSERT INTO STYLE_MODE(STYLE_MODE_NUM, MEM_NUM, PLAN_NUM, MONEY_OPTION_NUM, STAY_TYPE_NUM, TRAFFIC_NUM, CYCLE_NUM, PACE_NUM, DESTI_TYPE_NUM
+                      , TO_DO_NUM, TO_SEE_NUM, FOOD_NUM, MEAL_COUNT_NUM, SUPPLY_NUM, PHOTO_NUM, NAME, CREATE_DATE)
+		VALUES(CONCAT('ST-MODE-',LPAD(STYLE_MODE_SEQ.NEXTVAL,5,0)),#{mem_num}, #{plan_num}, #{money_option_num}, #{stay_type_num}, #{traffic_num}, #{cycle_num}, #{pace_num}, #{desti_type_num}
+              ,#{to_do_num}, #{to_see_num}, #{food_num}, #{meal_count_num}, #{supply_num}, #{photo_num}, #{mode_name}, SYSDATE)	
+	</insert>
+	
+	<!-- 여행스타일 모드 업데이트 -->
+	<update id="modeUpdate">
+		UPDATE STYLE_MODE 
+		SET PLAN_NUM=#{plan_num}, MONEY_OPTION_NUM=#{money_option_num}, STAY_TYPE_NUM=#{stay_type_num}, TRAFFIC_NUM=#{traffic_num}
+   		  , CYCLE_NUM=#{cycle_num}, PACE_NUM=#{pace_num}, DESTI_TYPE_NUM=#{desti_type_num}, TO_DO_NUM=#{to_do_num}, TO_SEE_NUM=#{to_see_num}
+          , FOOD_NUM=#{meal_count_num}, MEAL_COUNT_NUM=#{meal_count_num}, SUPPLY_NUM=#{supply_num}, PHOTO_NUM=#{photo_num}
+            WHERE MEM_NUM = #{mem_num} AND NAME = #{mode_name}
+	</update>	
+	
+	<!-- 여행스타일 모드당 존재하는지 확인 -->
+	<select id="modeCount" resultType="java.lang.Integer" parameterType="String">
+		SELECT COUNT(*) AS COUNT
+		FROM STYLE_MODE
+		WHERE MEM_NUM = #{mem_num} AND NAME = #{mode_name}
+	</select>
+	
+	<!-- 여행스타일 조회  -->
+	<select id="modeSelect" resultType="com.final1.logic.RoomListDTO">
+		SELECT *
+		FROM STYLE_MODE
+		WHERE MEM_NUM = #{mem_num} AND NAME = #{mode_name}
+	</select>
+	
+		
+	<!-- 해당 방 비밀번호 조회 -->
+	<select id="pwRoom" resultType="java.lang.Integer">
+		SELECT COUNT(PW)
+		FROM PW_CODE
+		WHERE ROOM_NUM = #{room_num} AND PW = CRYPTPACK.ENCRYPT(#{pw}, #{pw})
+	</select>
+	
+	
+	
+	<!-- 전체 검색  -->
+	<select id="searchList" resultType="com.final1.logic.RoomListDTO">
+	SELECT RLV.*, T.TOTAL,T.PW_CODE, T.ONGOING, T.BOOKMARK, ROWNUM AS NUM
+      FROM ROOM_LIST_VIEW RLV,
+		(
+		    SELECT ROOM_NUM, ROOM_BUILD_DATE, TRIP_START_DATE
+		         , (PLAN + MONEY_OPTION + STAY_TYPE + TRAFFIC
+		            + CYCLE + PACE + DESTI_TYPE + TO_DO + TO_SEE
+		            + FOOD + MEAL_COUNT + SUPPLY + PHOTO) AS TOTAL, PW_CODE, ONGOING, BOOKMARK
+		    FROM
+		        (SELECT ROOM_NUM
+		                ,ID_NUM,PLAN_NUM,MONEY_OPTION_NUM,STAY_TYPE_NUM,TRAFFIC_NUM        
+		                ,CYCLE_NUM,PACE_NUM,DESTI_TYPE_NUM,TO_DO_NUM,TO_SEE_NUM,FOOD_NUM
+		                ,MEAL_COUNT_NUM,SUPPLY_NUM,PHOTO_NUM,REGION_NUM,PLAN_ONOFF_NUM
+		                ,GENDER_LIMIT_NUM,AGE_LIMIT_NUM,TRIP_START_DATE,TRIP_END_DATE,MEM_MAX
+		                ,ROOM_BUILD_DATE,ROOM_TITLE,BUDGET,START_LOC_LAT,START_LOC_LNG,START_LOC_DATE
+		                ,FINAL_GO_DATE,ROOM_DEL_DATE
+		              , CASE WHEN ROOM_NUM IN (SELECT ROOM_NUM
+		                                       FROM PW_CODE)
+		                THEN 'YES' ELSE 'NO' END AS PW_CODE                         
+		              , CASE WHEN ROOM_NUM IN (SELECT J.ROOM_NUM
+		                                       FROM ONGOING G LEFT JOIN MEM_JOIN J
+		                                       ON G.MEM_JOIN_NUM = J.MEM_JOIN_NUM
+		                                       WHERE J.ID_NUM = #{id_num})
+		                THEN 'YES' ELSE 'NO' END AS ONGOING                         
+		              , CASE WHEN ROOM_NUM IN (SELECT ROOM_NUM                      
+		                                       FROM BOOKMARK
+		                                       WHERE MEM_NUM = (SELECT MEM_NUM
+		                                                        FROM MEMBER
+		                                                        WHERE ID_NUM = #{id_num}))
+		                       THEN 'YES' ELSE 'NO' END AS BOOKMARK
+		              <choose>
+		              	<when test="dto.plan_num == null">
+			             , CASE WHEN PLAN_NUM IN (0) THEN 1                            
+			               ELSE 0 END AS PLAN
+		              	</when>
+		              	<otherwise>
+		              	 , CASE WHEN PLAN_NUM IN (#{dto.plan_num}) THEN 1                            
+			               ELSE 0 END AS PLAN
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.money_option_num == null">
+			             , CASE WHEN MONEY_OPTION_NUM IN (0) THEN 1 
+			               ELSE 0 END AS MONEY_OPTION
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN MONEY_OPTION_NUM IN (#{dto.money_option_num}) THEN 1 
+			               ELSE 0 END AS MONEY_OPTION
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.stay_type_num == null">
+			             , CASE WHEN STAY_TYPE_NUM IN (0) THEN 1 
+			               ELSE 0 END AS STAY_TYPE
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN STAY_TYPE_NUM IN (#{dto.stay_type_num}) THEN 1 
+		    	           ELSE 0 END AS STAY_TYPE
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.traffic_num == null">
+			             , CASE WHEN TRAFFIC_NUM IN (0) THEN 1 
+			               ELSE 0 END AS TRAFFIC
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN TRAFFIC_NUM IN (#{dto.traffic_num}) THEN 1 
+			               ELSE 0 END AS TRAFFIC
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.cycle_num == null">
+			             , CASE WHEN CYCLE_NUM IN (0) THEN 1 
+			               ELSE 0 END AS CYCLE
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN CYCLE_NUM IN (#{dto.cycle_num}) THEN 1 
+			               ELSE 0 END AS CYCLE
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.pace_num == null">
+			             , CASE WHEN PACE_NUM IN (0) THEN 1 
+			               ELSE 0 END AS PACE       
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN PACE_NUM IN (#{dto.pace_num}) THEN 1 
+			               ELSE 0 END AS PACE       
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.desti_type_num == null">
+			             , CASE WHEN DESTI_TYPE_NUM IN (0) THEN 1 
+			               ELSE 0 END AS DESTI_TYPE
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN DESTI_TYPE_NUM IN (#{dto.desti_type_num}) THEN 1 
+			               ELSE 0 END AS DESTI_TYPE
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.to_do_num == null">
+			             , CASE WHEN TO_DO_NUM IN (0) THEN 1 
+			               ELSE 0 END AS TO_DO
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN TO_DO_NUM IN (#{dto.to_do_num}) THEN 1 
+			               ELSE 0 END AS TO_DO
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.to_see_num == null">
+			             , CASE WHEN TO_SEE_NUM IN (0) THEN 1 
+			               ELSE 0 END AS TO_SEE
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN TO_SEE_NUM IN (#{dto.to_see_num}) THEN 1 
+			               ELSE 0 END AS TO_SEE
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.food_num == null">
+			             , CASE WHEN FOOD_NUM IN (0) THEN 1 
+			               ELSE 0 END AS FOOD
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN FOOD_NUM IN (#{dto.food_num}) THEN 1 
+			               ELSE 0 END AS FOOD
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.meal_count_num == null">
+			             , CASE WHEN MEAL_COUNT_NUM IN (0) THEN 1 
+			               ELSE 0 END AS MEAL_COUNT
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN MEAL_COUNT_NUM IN (#{dto.meal_count_num}) THEN 1 
+			               ELSE 0 END AS MEAL_COUNT
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.supply_num == null">
+			             , CASE WHEN SUPPLY_NUM IN (0) THEN 1 
+			               ELSE 0 END AS SUPPLY
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN SUPPLY_NUM IN (#{dto.supply_num}) THEN 1 
+			               ELSE 0 END AS SUPPLY
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.photo_num == null">
+			             , CASE WHEN PHOTO_NUM IN (0) THEN 1 
+			               ELSE 0 END AS PHOTO
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN PHOTO_NUM IN (#{dto.photo_num}) THEN 1 
+			               ELSE 0 END AS PHOTO
+		              	</otherwise>
+		              </choose>
+		        FROM BUILD_ROOM
+		        WHERE FINAL_GO_DATE IS NULL
+		        		 <![CDATA[ AND TO_DATE(SYSDATE,'YYYY-MM-DD') <= TO_CHAR(TO_DATE(TRIP_START_DATE, 'YYYY-MM-DD') - INTERVAL '1' DAY, 'YYYY-MM-DD')]]>
+		                  AND ROOM_DEL_DATE IS NULL
+		                  AND ROOM_NUM NOT IN ( SELECT J.ROOM_NUM
+		                                        FROM ONGOING G LEFT JOIN MEM_JOIN J
+		                                        ON G.MEM_JOIN_NUM = J.MEM_JOIN_NUM
+		                                        WHERE ID_NUM IN (SELECT BLOCKED_ID_NUM
+		                                                       FROM MEM_BLOCK
+		                                                       WHERE BLOCKER_ID_NUM = #{id_num}))
+		                  AND ROOM_NUM NOT IN ( SELECT J.ROOM_NUM
+		                                        FROM ONGOING G LEFT JOIN MEM_JOIN J
+		                                        ON G.MEM_JOIN_NUM = J.MEM_JOIN_NUM
+		                                        WHERE ID_NUM IN (SELECT BLOCKER_ID_NUM
+		                                                       FROM MEM_BLOCK
+		                                                       WHERE BLOCKED_ID_NUM = #{id_num}))
+		        )
+		    <where>
+		    	<if test="dto.room_title != null">
+			      ROOM_TITLE LIKE '%'||#{dto.room_title}||'%'
+		    	</if>
+		    	<if test="dto.plan_onoff_num != null and dto.plan_onoff_num != 0">
+		          AND PLAN_ONOFF_NUM = #{dto.plan_onoff_num}
+		    	</if>
+		    	<if test="dto.room_onoff_name != null">
+		          AND PW_CODE LIKE (CASE WHEN #{dto.room_onoff_name} IN ('YES', 'NO') THEN #{dto.room_onoff_name} ELSE '%' END)
+		    	</if>
+		    	<if test="dto.gender_limit_num != null and dto.gender_limit_num != 0">
+		          AND GENDER_LIMIT_NUM = #{dto.gender_limit_num}
+		    	</if>
+		    	<if test="dto.age_limit_num != null and dto.age_limit_num != 0">
+		          AND AGE_LIMIT_NUM = #{dto.age_limit_num}
+		    	</if>
+		        <if test="dto.region_num != null and dto.region_num != 0">
+		          AND REGION_NUM = #{dto.region_num}
+		        </if>
+		        <if test="dto.budget_min != null and dto.budget_max != null">
+		          AND BUDGET BETWEEN ${dto.budget_min} AND (CASE WHEN ${dto.budget_max} = 0 THEN 10000000 ELSE ${dto.budget_max} END)
+		        </if>        
+		        <if test="dto.trip_start_date != null and dto.trip_start_date != ''">
+		          AND TRIP_START_DATE = TO_DATE(#{dto.trip_start_date},'YYYY-MM-DD')
+		        </if>
+		        <if test="dto.trip_end_date != null and dto.trip_end_date != ''">
+		          AND TRIP_END_DATE = TO_DATE(#{dto.trip_end_date},'YYYY-MM-DD')
+		        </if>
+		    </where>
+		    ORDER BY TOTAL DESC
+		) T
+		WHERE RLV.ROOM_NUM = T.ROOM_NUM
+      <choose>
+         <when test="sort == 2">
+               ORDER BY RLV.TRIP_START_DATE
+         </when>
+         <otherwise>
+            ORDER BY RLV.ROOM_BUILD_DATE DESC   
+             </otherwise>
+      </choose>
+	</select>
+	
+	<!-- 전체 검색 갯수   -->
+	<select id="searchListCount" resultType="Integer">
+		SELECT NVL(COUNT(*),0) AS COUNT
+		FROM ROOM_LIST_VIEW RLV,
+		(
+		    SELECT ROOM_NUM, ROOM_BUILD_DATE, TRIP_START_DATE
+		         , (PLAN + MONEY_OPTION + STAY_TYPE + TRAFFIC
+		            + CYCLE + PACE + DESTI_TYPE + TO_DO + TO_SEE
+		            + FOOD + MEAL_COUNT + SUPPLY + PHOTO) AS TOTAL, PW_CODE, ONGOING, BOOKMARK
+		    FROM
+		        (SELECT ROOM_NUM
+		                ,ID_NUM,PLAN_NUM,MONEY_OPTION_NUM,STAY_TYPE_NUM,TRAFFIC_NUM        
+		                ,CYCLE_NUM,PACE_NUM,DESTI_TYPE_NUM,TO_DO_NUM,TO_SEE_NUM,FOOD_NUM
+		                ,MEAL_COUNT_NUM,SUPPLY_NUM,PHOTO_NUM,REGION_NUM,PLAN_ONOFF_NUM
+		                ,GENDER_LIMIT_NUM,AGE_LIMIT_NUM,TRIP_START_DATE,TRIP_END_DATE,MEM_MAX
+		                ,ROOM_BUILD_DATE,ROOM_TITLE,BUDGET,START_LOC_LAT,START_LOC_LNG,START_LOC_DATE
+		                ,FINAL_GO_DATE,ROOM_DEL_DATE
+		              , CASE WHEN ROOM_NUM IN (SELECT ROOM_NUM
+		                                       FROM PW_CODE)
+		                THEN 'YES' ELSE 'NO' END AS PW_CODE                         
+		              , CASE WHEN ROOM_NUM IN (SELECT J.ROOM_NUM
+		                                       FROM ONGOING G LEFT JOIN MEM_JOIN J
+		                                       ON G.MEM_JOIN_NUM = J.MEM_JOIN_NUM
+		                                       WHERE J.ID_NUM = #{id_num})
+		                THEN 'YES' ELSE 'NO' END AS ONGOING                         
+		              , CASE WHEN ROOM_NUM IN (SELECT ROOM_NUM                      
+		                                       FROM BOOKMARK
+		                                       WHERE MEM_NUM = (SELECT MEM_NUM
+		                                                        FROM MEMBER
+		                                                        WHERE ID_NUM = #{id_num}))
+		                       THEN 'YES' ELSE 'NO' END AS BOOKMARK
+		              <choose>
+		              	<when test="dto.plan_num == null">
+			             , CASE WHEN PLAN_NUM IN (0) THEN 1                            
+			               ELSE 0 END AS PLAN
+		              	</when>
+		              	<otherwise>
+		              	 , CASE WHEN PLAN_NUM IN (#{dto.plan_num}) THEN 1                            
+			               ELSE 0 END AS PLAN
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.money_option_num == null">
+			             , CASE WHEN MONEY_OPTION_NUM IN (0) THEN 1 
+			               ELSE 0 END AS MONEY_OPTION
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN MONEY_OPTION_NUM IN (#{dto.money_option_num}) THEN 1 
+			               ELSE 0 END AS MONEY_OPTION
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.stay_type_num == null">
+			             , CASE WHEN STAY_TYPE_NUM IN (0) THEN 1 
+			               ELSE 0 END AS STAY_TYPE
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN STAY_TYPE_NUM IN (#{dto.stay_type_num}) THEN 1 
+		    	           ELSE 0 END AS STAY_TYPE
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.traffic_num == null">
+			             , CASE WHEN TRAFFIC_NUM IN (0) THEN 1 
+			               ELSE 0 END AS TRAFFIC
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN TRAFFIC_NUM IN (#{dto.traffic_num}) THEN 1 
+			               ELSE 0 END AS TRAFFIC
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.cycle_num == null">
+			             , CASE WHEN CYCLE_NUM IN (0) THEN 1 
+			               ELSE 0 END AS CYCLE
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN CYCLE_NUM IN (#{dto.cycle_num}) THEN 1 
+			               ELSE 0 END AS CYCLE
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.pace_num == null">
+			             , CASE WHEN PACE_NUM IN (0) THEN 1 
+			               ELSE 0 END AS PACE       
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN PACE_NUM IN (#{dto.pace_num}) THEN 1 
+			               ELSE 0 END AS PACE       
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.desti_type_num == null">
+			             , CASE WHEN DESTI_TYPE_NUM IN (0) THEN 1 
+			               ELSE 0 END AS DESTI_TYPE
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN DESTI_TYPE_NUM IN (#{dto.desti_type_num}) THEN 1 
+			               ELSE 0 END AS DESTI_TYPE
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.to_do_num == null">
+			             , CASE WHEN TO_DO_NUM IN (0) THEN 1 
+			               ELSE 0 END AS TO_DO
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN TO_DO_NUM IN (#{dto.to_do_num}) THEN 1 
+			               ELSE 0 END AS TO_DO
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.to_see_num == null">
+			             , CASE WHEN TO_SEE_NUM IN (0) THEN 1 
+			               ELSE 0 END AS TO_SEE
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN TO_SEE_NUM IN (#{dto.to_see_num}) THEN 1 
+			               ELSE 0 END AS TO_SEE
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.food_num == null">
+			             , CASE WHEN FOOD_NUM IN (0) THEN 1 
+			               ELSE 0 END AS FOOD
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN FOOD_NUM IN (#{dto.food_num}) THEN 1 
+			               ELSE 0 END AS FOOD
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.meal_count_num == null">
+			             , CASE WHEN MEAL_COUNT_NUM IN (0) THEN 1 
+			               ELSE 0 END AS MEAL_COUNT
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN MEAL_COUNT_NUM IN (#{dto.meal_count_num}) THEN 1 
+			               ELSE 0 END AS MEAL_COUNT
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.supply_num == null">
+			             , CASE WHEN SUPPLY_NUM IN (0) THEN 1 
+			               ELSE 0 END AS SUPPLY
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN SUPPLY_NUM IN (#{dto.supply_num}) THEN 1 
+			               ELSE 0 END AS SUPPLY
+		              	</otherwise>
+		              </choose>
+		              <choose>
+		              	<when test="dto.photo_num == null">
+			             , CASE WHEN PHOTO_NUM IN (0) THEN 1 
+			               ELSE 0 END AS PHOTO
+		              	</when>
+		              	<otherwise>
+			             , CASE WHEN PHOTO_NUM IN (#{dto.photo_num}) THEN 1 
+			               ELSE 0 END AS PHOTO
+		              	</otherwise>
+		              </choose>
+		        FROM BUILD_ROOM
+		        WHERE FINAL_GO_DATE IS NULL
+		                  AND ROOM_DEL_DATE IS NULL
+		                  AND ROOM_NUM NOT IN ( SELECT J.ROOM_NUM
+		                                        FROM ONGOING G LEFT JOIN MEM_JOIN J
+		                                        ON G.MEM_JOIN_NUM = J.MEM_JOIN_NUM
+		                                        WHERE ID_NUM IN (SELECT BLOCKED_ID_NUM
+		                                                       FROM MEM_BLOCK
+		                                                       WHERE BLOCKER_ID_NUM = #{id_num}))
+		                  AND ROOM_NUM NOT IN ( SELECT J.ROOM_NUM
+		                                        FROM ONGOING G LEFT JOIN MEM_JOIN J
+		                                        ON G.MEM_JOIN_NUM = J.MEM_JOIN_NUM
+		                                        WHERE ID_NUM IN (SELECT BLOCKER_ID_NUM
+		                                                       FROM MEM_BLOCK
+		                                                       WHERE BLOCKED_ID_NUM = #{id_num}))
+		        )
+		    <where>
+		    	<if test="dto.room_title != null">
+			      ROOM_TITLE LIKE '%'||#{dto.room_title}||'%'
+		    	</if>
+		    	<if test="dto.plan_onoff_num != null and dto.plan_onoff_num != 0">
+		          AND PLAN_ONOFF_NUM = #{dto.plan_onoff_num}
+		    	</if>
+		    	<if test="dto.room_onoff_name != null">
+		          AND PW_CODE LIKE (CASE WHEN #{dto.room_onoff_name} IN ('YES', 'NO') THEN #{dto.room_onoff_name} ELSE '%' END)
+		    	</if>
+		    	<if test="dto.gender_limit_num != null and dto.gender_limit_num != 0">
+		          AND GENDER_LIMIT_NUM = #{dto.gender_limit_num}
+		    	</if>
+		    	<if test="dto.age_limit_num != null and dto.age_limit_num != 0">
+		          AND AGE_LIMIT_NUM = #{dto.age_limit_num}
+		    	</if>
+		        <if test="dto.region_num != null and dto.region_num != 0">
+		          AND REGION_NUM = #{dto.region_num}
+		        </if>
+		        <if test="dto.budget_min != null and dto.budget_max != null">
+		          AND BUDGET BETWEEN ${dto.budget_min} AND (CASE WHEN ${dto.budget_max} = 0 THEN 10000000 ELSE ${dto.budget_max} END)
+		        </if>        
+		        <if test="dto.trip_start_date != null and dto.trip_start_date != ''">
+		          AND TRIP_START_DATE = TO_DATE(#{dto.trip_start_date},'YYYY-MM-DD')
+		        </if>
+		        <if test="dto.trip_end_date != null and dto.trip_end_date != ''">
+		          AND TRIP_END_DATE = TO_DATE(#{dto.trip_end_date},'YYYY-MM-DD')
+		        </if>
+		    </where>
+		    ORDER BY TOTAL DESC
+		) T
+		WHERE RLV.ROOM_NUM = T.ROOM_NUM
+	</select>
+	
+	
+	<!-- 방 개설 -->
+	<insert id="addRoom">
+		INSERT INTO BUILD_ROOM(ROOM_NUM,ID_NUM, PLAN_NUM, MONEY_OPTION_NUM, STAY_TYPE_NUM, TRAFFIC_NUM
+							 , CYCLE_NUM, PACE_NUM, DESTI_TYPE_NUM, TO_DO_NUM, TO_SEE_NUM, FOOD_NUM, MEAL_COUNT_NUM
+							 , SUPPLY_NUM, PHOTO_NUM, REGION_NUM, PLAN_ONOFF_NUM, GENDER_LIMIT_NUM, AGE_LIMIT_NUM
+							 , TRIP_START_DATE, TRIP_END_DATE, MEM_MAX, ROOM_BUILD_DATE, ROOM_TITLE, BUDGET
+							 , START_LOC_NAME, START_LOC_LAT, START_LOC_LNG, START_LOC_DATE, FINAL_GO_DATE, ROOM_DEL_DATE)
+							 
+		VALUES (CONCAT('ROOM-',LPAD(BUILD_ROOM_SEQ.NEXTVAL,5,0)), #{id_num}, TO_NUMBER(#{plan_num}), TO_NUMBER(#{money_option_num})
+			 , TO_NUMBER(#{stay_type_num}), TO_NUMBER(#{traffic_num})
+			 , TO_NUMBER(#{cycle_num}), TO_NUMBER(#{pace_num}), TO_NUMBER(#{desti_type_num}), TO_NUMBER(#{to_do_num}), TO_NUMBER(#{to_see_num})
+			 , TO_NUMBER(#{food_num}), TO_NUMBER(#{meal_count_num}), TO_NUMBER(#{supply_num})
+			 , TO_NUMBER(#{photo_num}), TO_NUMBER((SELECT REGION_NUM FROM REGION WHERE NAME=#{region_num})), TO_NUMBER(#{plan_onoff_num}), TO_NUMBER(#{gender_limit_num})
+			 , TO_NUMBER(#{age_limit_num})
+			 , TO_DATE(#{trip_start_date}, 'YYYY-MM-DD'), TO_DATE(#{trip_end_date}, 'YYYY-MM-DD'), TO_NUMBER(#{mem_max}), SYSDATE
+			 , #{room_title}, TO_NUMBER(#{budget}), #{start_loc_name}, #{start_loc_lat}, #{start_loc_lng}, #{start_loc_date}, NULL, NULL)
+	</insert>
+	
+	<!-- 비공개 방 -->
+	<insert id="addPw">
+		INSERT INTO PW_CODE(PW_NUM, ROOM_NUM, PW)
+		VALUES(PW_CODE_SEQ.NEXTVAL, (SELECT MAX(ROOM_NUM) FROM BUILD_ROOM WHERE ID_NUM = #{id_num})
+		, CRYPTPACK.ENCRYPT(#{pw_code}, #{pw_code}))
+	</insert>
+	
+	<insert id="memJoinAdd">
+		INSERT INTO MEM_JOIN(MEM_JOIN_NUM, ID_NUM, ROOM_NUM, JOIN_DATE)
+		VALUES(CONCAT('MEM-JOIN-', LPAD(MEM_JOIN_SEQ.NEXTVAL, 5, 0)), #{id_num},(SELECT MAX(ROOM_NUM) FROM BUILD_ROOM WHERE ID_NUM = #{id_num}), SYSDATE)
+	</insert>
+	
+	<insert id="ongoingAdd">
+		INSERT INTO ONGOING(ONGOING_NUM, MEM_JOIN_NUM, READY, GO_ALARM_CHECK_DATE) VALUES(CONCAT('ONGOING-',LPAD(ONGOING_SEQ.NEXTVAL,5,0))
+		,(SELECT MAX(MEM_JOIN_NUM) FROM MEM_JOIN WHERE ID_NUM = #{id_num} AND ROOM_NUM = ((SELECT MAX(ROOM_NUM) FROM BUILD_ROOM WHERE ID_NUM = #{id_num}))), NULL, NULL)
+	</insert>
+	
+	<select id="findRoomNum" resultType="String">
+      SELECT MAX(ROOM_NUM)
+      FROM BUILD_ROOM
+      WHERE ID_NUM = #{id_num}
+   </select>
+	
+	
+</mapper>

@@ -1,0 +1,88 @@
+@charset "UTF-8";
+
+.list-group {
+  max-width: 1000px;
+  margin: 4rem auto;
+}
+
+.list-group .list-group-item {
+  cursor: pointer;	
+  border-radius: 15px;
+  border-style: solid; 	
+}
+
+
+.room_if {
+	margin-left: 18px;
+}
+
+h6 {
+	font-weight: bold;
+	color: #FF9966;
+}
+
+
+p {
+	font-weight: bold;
+	font-size: 18px;
+	color: #666666
+}
+
+#nickName {
+	font-weight: bold;
+	font-size: 16px;
+	color: #CEA69C;
+	margin-bottom: 0;
+	margin-left: 23px;
+}
+
+.text-nowrap {
+	color: #C1ADAC;
+	font-size: 20px;
+	
+}
+
+ul li {
+	list-style-type: none;
+	float: left;
+	margin-left: 5px;
+	margin-right: 20px;
+}
+
+.bi-bookmark {
+	font-size: 20px;
+	color: #696969;
+}
+
+.bi-bookmark-fill {
+	font-size: 20px;
+	color: #696969;
+}
+
+.bi-unlock {
+	font-size: 30px;
+	color: #FBBF66;
+	margin-right: 20px;
+}
+
+.bi-lock {
+	font-size: 30px;
+	color: #FBBF66;
+	margin-right: 20px;
+}
+
+#btnStyle {
+	font-size: 28px;
+	font-weight: bold;
+	color : #49AFB4;
+	margin-right: 48px;
+}
+
+
+.page-item {
+	margin-right: 0;
+	margin-left: 0;
+}
+
+
+

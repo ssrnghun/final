@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.final1.logic.IFindLimitDAO">
+
+	 <select id="findLimit1" resultType="com.final1.logic.FindLimitDTO">
+	 	SELECT NUM, ID_NUM AS IDNUM, REASON, TO_CHAR(START_DATE, 'YYYY-MM-DD') AS STARTDATE, TO_CHAR(END_DATE, 'YYYY-MM-DD') AS ENDDATE
+		FROM STOP_ID_VIEW
+		WHERE END_DATE >= SYSDATE
+  		  AND END_DATE = (SELECT MAX(END_DATE)
+                  		  FROM STOP_ID_VIEW
+                  		  WHERE ID_NUM = (SELECT ID_NUM FROM MEM_REGI WHERE ID = #{id}))
+	 </select>
+	 
+	 <select id="findLimitList" resultType="com.final1.logic.FindLimitDTO">
+	 	SELECT NUM, ID_NUM, REASON, TO_CHAR(START_DATE, 'YYYY-MM-DD') AS STARTDATE, TO_CHAR(END_DATE, 'YYYY-MM-DD') AS ENDDATE
+     		 , (END_DATE - START_DATE) AS STOPDATE
+		FROM STOP_ID_VIEW
+		WHERE END_DATE >= SYSDATE
+  		  AND ID_NUM = (SELECT ID_NUM
+                		FROM MEM_REGI
+                		WHERE ID = #{id})
+	 </select>
+	 
+	 <select id="limitCount" resultType="java.lang.Integer">
+	 	SELECT COUNT(*) AS COUNT
+		FROM STOP_ID_VIEW
+		WHERE END_DATE >= SYSDATE
+  		  AND END_DATE = (SELECT MAX(END_DATE)
+                  		  FROM STOP_ID_VIEW
+                 		  WHERE ID_NUM = (SELECT ID_NUM FROM MEM_REGI WHERE ID=#{id}))
+	 </select>
+	 
+	 <select id="total" resultType="com.final1.logic.FindLimitDTO">
+	 	SELECT MR.ID_NUM AS IDNUM
+     		 , MR.ID AS ID
+     		 , SUM(SIV.END_DATE - SIV.START_DATE) AS TOTAL
+		FROM STOP_ID_VIEW SIV
+		JOIN MEM_REGI MR ON SIV.ID_NUM = MR.ID_NUM
+		WHERE SIV.END_DATE >= SYSDATE
+		  AND MR.ID = #{id}
+		GROUP BY MR.ID_NUM, MR.ID
+	 </select>
+	 
+	 <select id="UseStart" resultType="java.lang.String">
+	 	SELECT NVL(TO_CHAR(MAX(END_DATE+1),'YYYY-MM-DD'), TO_CHAR(SYSDATE,'YYYY-MM-DD')) AS USESTART
+		FROM STOP_ID_VIEW
+		WHERE END_DATE > SYSDATE
+		  AND ID_NUM = (SELECT ID_NUM FROM MEM_REGI WHERE ID=#{id})
+	 </select>
+	
+</mapper>

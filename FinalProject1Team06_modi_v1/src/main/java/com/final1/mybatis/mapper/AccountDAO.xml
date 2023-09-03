@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.final1.logic.IAccountDAO">
+	<!-- 가계부 내용 출력 (전체) -->
+	<select id="AccountList" resultType="com.final1.logic.AccountDTO">
+		SELECT P.ROOM_NUM AS ROOM_NUM ,P.PAY_NUM AS PAY_NUM, P.DAY AS DAY
+		, PC.CONTENT AS PCCONTENT, P.CONTENT AS CONTENT, P.COST AS COST,  SUBSTR(
+        XMLAGG(
+            XMLELEMENT(COL ,',', M.NIKNAME ) ORDER BY P.PAY_NUM).EXTRACT('//text()'
+        ).GETSTRINGVAL()
+       , 2) AS NIKNAME
+		FROM MEM_WITH MW JOIN PAY P
+		ON MW.PAY_NUM = P.PAY_NUM
+		JOIN PAY_CATEGORY PC
+		ON PC.PAY_CATEGORY_NUM = P.PAY_CATEGORY_NUM
+		JOIN ONGOING OG
+		ON MW.MEM_JOIN_NUM = OG.MEM_JOIN_NUM
+		JOIN MEM_JOIN MJ
+		ON og.mem_join_num = mj.mem_join_num
+		JOIN MEMBER M
+		ON MJ.ID_NUM = M.ID_NUM
+		WHERE P.ROOM_NUM = #{room_num}
+		GROUP BY P.ROOM_NUM,P.PAY_NUM, P.DAY, PC.CONTENT, P.CONTENT, P.COST
+		ORDER BY 2
+	</select>
+	
+	<!-- 특정 일자 조회 -->
+	<select id="AccountListSel" resultType="com.final1.logic.AccountDTO">
+		SELECT P.ROOM_NUM AS ROOM_NUM ,P.PAY_NUM AS PAY_NUM, P.DAY AS DAY
+		, PC.CONTENT AS PCCONTENT, P.CONTENT AS CONTENT, P.COST AS COST,  SUBSTR(
+        XMLAGG(
+            XMLELEMENT(COL ,',', M.NIKNAME ) ORDER BY P.PAY_NUM).EXTRACT('//text()'
+        ).GETSTRINGVAL()
+       , 2) AS NIKNAME
+       ,TO_CHAR(BR.TRIP_START_DATE+(P.DAY-1),'YYYY-MM-DD') AS NALZA
+		FROM MEM_WITH MW JOIN PAY P
+		ON MW.PAY_NUM = P.PAY_NUM
+		JOIN PAY_CATEGORY PC
+		ON PC.PAY_CATEGORY_NUM = P.PAY_CATEGORY_NUM
+		JOIN ONGOING OG
+		ON MW.MEM_JOIN_NUM = OG.MEM_JOIN_NUM
+		JOIN MEM_JOIN MJ
+		ON og.mem_join_num = mj.mem_join_num
+		JOIN MEMBER M
+		ON MJ.ID_NUM = M.ID_NUM
+        JOIN BUILD_ROOM BR
+        ON BR.ROOM_NUM= P.ROOM_NUM
+		WHERE P.ROOM_NUM =#{room_num}
+        AND P.DAY = #{day}
+		GROUP BY P.ROOM_NUM,P.PAY_NUM, P.DAY, PC.CONTENT
+		, P.CONTENT, P.COST, TO_CHAR(BR.TRIP_START_DATE+(P.DAY-1),'YYYY-MM-DD')
+		ORDER BY 2
+	</select>
+	
+	
+	<!-- 방정보  -->
+	<select id="planner" resultType="com.final1.logic.RoomDTO">
+		SELECT RLV.*
+		FROM ROOM_LIST_VIEW RLV
+		WHERE ROOM_NUM = #{room_num}	
+	</select>
+	
+	<select id="totalCost" resultType="Integer">
+		SELECT NVL(SUM(COST),0) AS COST
+		FROM PAY	
+		WHERE ROOM_NUM = #{room_num}
+	</select>
+	
+	<select id="dayCost" resultType="Integer">
+		SELECT SUM(COST)
+		FROM PAY	
+		WHERE ROOM_NUM = #{room_num}
+		GROUP BY DAY
+		HAVING DAY = #{day}
+	</select>
+	
+	<select id="sumCost" resultType="com.final1.logic.AccountDTO">
+		SELECT C.NIKNAME AS NIKNAME, D.PHOTO AS PHOTO, C.DOCOST AS DOCOST, D.PAYCOST AS PAYCOST, D.MEM_JOIN_NUM AS MEM_JOIN_NUM
+		FROM
+		(
+		    SELECT DISTINCT M.NIKNAME,SUM(SEPCOST) OVER(PARTITION BY P.MEM_JOIN_NUM ORDER BY P.MEM_JOIN_NUM) AS DOCOST
+		    FROM
+		    (
+		        SELECT P.PAY_NUM, ROUND(P.COST/COUNT) AS SEPCOST
+		        FROM
+		        (
+		            SELECT  P.PAY_NUM AS PAY_NUM, COUNT(OG.MEM_JOIN_NUM) AS COUNT
+		            FROM PAY P JOIN MEM_WITH MW
+		            ON P.PAY_NUM = MW.PAY_NUM
+		            JOIN ONGOING OG
+		            ON MW.MEM_JOIN_NUM = OG.MEM_JOIN_NUM
+		            WHERE P.ROOM_NUM = #{room_num}
+		            GROUP BY P.PAY_NUM
+		            ORDER BY 1
+		        )A
+		        JOIN PAY P
+		        ON A.PAY_NUM = P.PAY_NUM
+		    )B
+		    JOIN MEM_WITH P
+		    ON B.PAY_NUM = P.PAY_NUM
+		    JOIN ONGOING OG
+		    ON P.MEM_JOIN_NUM = OG.mem_join_num
+		    JOIN MEM_JOIN MJ
+		    ON og.mem_join_num = mj.mem_join_num
+		    JOIN MEMBER M
+		    ON MJ.ID_NUM = M.ID_NUM
+		)C
+		JOIN
+		(
+		    SELECT DISTINCT M.NIKNAME, M.PHOTO AS PHOTO, OG.MEM_JOIN_NUM AS MEM_JOIN_NUM, SUM(SEPCOST) OVER(PARTITION BY P.MEM_JOIN_NUM ORDER BY P.MEM_JOIN_NUM) AS PAYCOST
+		    FROM
+		    (
+		        SELECT A.PAY_NUM, ROUND(COST/COUNT) AS SEPCOST
+		        FROM
+		        (
+		            SELECT P.PAY_NUM, P.COST, COUNT(MP.MEM_JOIN_NUM) AS COUNT
+		            FROM MEM_PAY MP JOIN PAY P
+		            ON MP.PAY_NUM = P.PAY_NUM
+		            WHERE P.ROOM_NUM = #{room_num}
+		            GROUP BY P.PAY_NUM,  P.COST
+		            ORDER BY 1
+		        )A
+		    )B
+		    JOIN MEM_PAY P
+		    ON B.PAY_NUM = P.PAY_NUM
+		    JOIN ONGOING OG
+		    ON P.MEM_JOIN_NUM = OG.mem_join_num
+		    JOIN MEM_JOIN MJ
+		    ON og.mem_join_num = mj.mem_join_num
+		    JOIN MEMBER M
+		    ON MJ.ID_NUM = M.ID_NUM
+		)D
+		ON C.NIKNAME = D.NIKNAME
+		ORDER BY 1
+	</select>
+	
+	<insert id="AccountAdd">
+		INSERT INTO PAY(PAY_NUM, ROOM_NUM, PAY_CATEGORY_NUM, COST, CONTENT, PAY_DATE, DAY) 
+		VALUES(CONCAT('PAY-',LPAD(PAY_SEQ.NEXTVAL,5,0)),#{room_num},#{pay_category_num},#{cost}, #{content},TO_DATE(SYSDATE,'YYYY-MM-DD'), #{day})
+	</insert>
+	
+	<insert id="memPayAdd">
+		INSERT INTO MEM_PAY(MEM_PAY_NUM,MEM_JOIN_NUM,PAY_NUM,PAID_DATE) 
+		VALUES(CONCAT('MEM-PAY-',LPAD(MEM_PAY_SEQ.NEXTVAL,5,0)),#{mem_join_num},(SELECT MAX(PAY_NUM) FROM PAY WHERE ROOM_NUM =#{room_num}), TO_DATE(#{paid_date},'YYYY-MM-DD'))
+	</insert>
+	
+	<insert id="memWithAdd">
+		INSERT INTO MEM_WITH(MEM_WITH_NUM,MEM_JOIN_NUM,PAY_NUM) VALUES
+		(CONCAT('MEM-WITH-',LPAD(MEM_WITH_SEQ.NEXTVAL,5,0)),#{mem_join_num}, (SELECT MAX(PAY_NUM) FROM PAY WHERE ROOM_NUM =#{room_num}))
+	</insert>
+	
+	<delete id="accountDel">
+		DELETE 
+		FROM PAY
+		WHERE PAY_NUM = #{pay_num}
+	</delete>
+	
+	<select id="payCal" resultType="com.final1.logic.AccountDTO">
+		SELECT PAYMEM.MEM_JOIN_NUM AS "PAYMEMBER"
+     , WITHMEM.MEM_JOIN_NUM AS "WITHMEMBER"
+     , NVL(PAYMEM.PAYMONEY,0) AS "PAYMONEY"
+     , NVL(WITHMEM.WITHMONEY,0) AS "WITHMONEY"
+     , NVL(PAYMEM.PAYMONEY,0) + NVL(WITHMEM.WITHMONEY,0) AS "TOTAL"
+	FROM
+	( SELECT DISTINCT MEM_JOIN_NUM
+	       ,ROUND((SELECT TO_NUMBER((SELECT COST FROM PAY WHERE PAY_NUM = #{pay_num}) 
+	       / (SELECT COUNT(MEM_JOIN_NUM) FROM MEM_PAY WHERE PAY_NUM = #{pay_num}))*(-1) AS "결제한 돈" FROM DUAL)) AS "PAYMONEY" 
+	  FROM MEM_PAY
+	  WHERE MEM_JOIN_NUM IN (SELECT MEM_JOIN_NUM FROM MEM_PAY WHERE PAY_NUM = #{pay_num})
+	) PAYMEM
+	FULL JOIN
+	( SELECT DISTINCT MEM_JOIN_NUM
+	       ,ROUND((SELECT TO_NUMBER((SELECT COST FROM PAY WHERE PAY_NUM = #{pay_num})
+	       / (SELECT COUNT(MEM_JOIN_NUM) FROM MEM_WITH WHERE PAY_NUM = #{pay_num})) AS "함께한 돈" FROM DUAL)) AS "WITHMONEY"
+	  FROM MEM_PAY
+	  WHERE MEM_JOIN_NUM IN (SELECT MEM_JOIN_NUM FROM MEM_WITH WHERE PAY_NUM = #{pay_num})
+	) WITHMEM
+	ON PAYMEM.MEM_JOIN_NUM = WITHMEM.MEM_JOIN_NUM
+	ORDER BY 1
+	</select>
+	
+	<!-- 돈 줘야하는 사람  -->
+	<select id="giveMem" resultType="com.final1.logic.AccountDTO">
+		SELECT  M.PHOTO AS PHOTO, M.NIKNAME AS NIKNAME, A.TOTAL
+		FROM 
+		(
+				SELECT PAYMEM.MEM_JOIN_NUM AS "PAYMEMBER"
+		     , WITHMEM.MEM_JOIN_NUM AS "WITHMEMBER"
+		     , NVL(PAYMEM.PAYMONEY,0) AS "PAYMONEY"
+		     , NVL(WITHMEM.WITHMONEY,0) AS "WITHMONEY"
+		     , NVL(PAYMEM.PAYMONEY,0) + NVL(WITHMEM.WITHMONEY,0) AS "TOTAL"
+			FROM
+			( SELECT DISTINCT MEM_JOIN_NUM
+			       ,ROUND((SELECT TO_NUMBER((SELECT COST FROM PAY WHERE PAY_NUM = #{pay_num}) 
+			       / (SELECT COUNT(MEM_JOIN_NUM) FROM MEM_PAY WHERE PAY_NUM = #{pay_num}))*(-1) AS "결제한 돈" FROM DUAL)) AS "PAYMONEY" 
+			  FROM MEM_PAY
+			  WHERE MEM_JOIN_NUM IN (SELECT MEM_JOIN_NUM FROM MEM_PAY WHERE PAY_NUM = #{pay_num})
+			) PAYMEM
+			FULL JOIN
+			( SELECT DISTINCT MEM_JOIN_NUM
+			       ,ROUND((SELECT TO_NUMBER((SELECT COST FROM PAY WHERE PAY_NUM = #{pay_num})
+			       / (SELECT COUNT(MEM_JOIN_NUM) FROM MEM_WITH WHERE PAY_NUM = #{pay_num})) AS "함께한 돈" FROM DUAL)) AS "WITHMONEY"
+			  FROM MEM_PAY
+			  WHERE MEM_JOIN_NUM IN (SELECT MEM_JOIN_NUM FROM MEM_WITH WHERE PAY_NUM = #{pay_num})
+			) WITHMEM
+			ON PAYMEM.MEM_JOIN_NUM = WITHMEM.MEM_JOIN_NUM
+			ORDER BY 1
+		)A JOIN MEM_JOIN MJ
+		ON A.WITHMEMBER = MJ.MEM_JOIN_NUM
+		JOIN MEMBER M
+		ON MJ.ID_NUM = M.ID_NUM
+		<![CDATA[WHERE A.TOTAL > 0 ]]>
+	</select>
+	
+	<!--  돈 받아야 하는 사람 -->
+	<select id="takeMem" resultType="com.final1.logic.AccountDTO">
+		SELECT M.PHOTO AS PHOTO, M.NIKNAME AS NIKNAME, A.TOTAL
+		FROM 
+		(
+				SELECT PAYMEM.MEM_JOIN_NUM AS "PAYMEMBER"
+		     , WITHMEM.MEM_JOIN_NUM AS "WITHMEMBER"
+		     , NVL(PAYMEM.PAYMONEY,0) AS "PAYMONEY"
+		     , NVL(WITHMEM.WITHMONEY,0) AS "WITHMONEY"
+		     , NVL(PAYMEM.PAYMONEY,0) + NVL(WITHMEM.WITHMONEY,0) AS "TOTAL"
+			FROM
+			( SELECT DISTINCT MEM_JOIN_NUM
+			       ,ROUND((SELECT TO_NUMBER((SELECT COST FROM PAY WHERE PAY_NUM = #{pay_num}) 
+			       / (SELECT COUNT(MEM_JOIN_NUM) FROM MEM_PAY WHERE PAY_NUM = #{pay_num}))*(-1) AS "결제한 돈" FROM DUAL)) AS "PAYMONEY" 
+			  FROM MEM_PAY
+			  WHERE MEM_JOIN_NUM IN (SELECT MEM_JOIN_NUM FROM MEM_PAY WHERE PAY_NUM = #{pay_num})
+			) PAYMEM
+			FULL JOIN
+			( SELECT DISTINCT MEM_JOIN_NUM
+			       ,ROUND((SELECT TO_NUMBER((SELECT COST FROM PAY WHERE PAY_NUM = #{pay_num})
+			       / (SELECT COUNT(MEM_JOIN_NUM) FROM MEM_WITH WHERE PAY_NUM = #{pay_num})) AS "함께한 돈" FROM DUAL)) AS "WITHMONEY"
+			  FROM MEM_PAY
+			  WHERE MEM_JOIN_NUM IN (SELECT MEM_JOIN_NUM FROM MEM_WITH WHERE PAY_NUM = #{pay_num})
+			) WITHMEM
+			ON PAYMEM.MEM_JOIN_NUM = WITHMEM.MEM_JOIN_NUM
+			ORDER BY 1
+		)A JOIN MEM_JOIN MJ
+		ON A.PAYMEMBER = MJ.MEM_JOIN_NUM
+		JOIN MEMBER M
+		ON MJ.ID_NUM = M.ID_NUM
+		<![CDATA[WHERE A.TOTAL < 0 ]]>
+		
+	</select>
+	
+	<!--  돈 받아야 하는 사람 명수 -->
+	<select id="takeMemCount" resultType="Integer">
+	
+		SELECT COUNT(*) AS COUNT
+		FROM 
+		(
+				SELECT PAYMEM.MEM_JOIN_NUM AS "PAYMEMBER"
+		     , WITHMEM.MEM_JOIN_NUM AS "WITHMEMBER"
+		     , NVL(PAYMEM.PAYMONEY,0) AS "PAYMONEY"
+		     , NVL(WITHMEM.WITHMONEY,0) AS "WITHMONEY"
+		     , NVL(PAYMEM.PAYMONEY,0) + NVL(WITHMEM.WITHMONEY,0) AS "TOTAL"
+			FROM
+			( SELECT DISTINCT MEM_JOIN_NUM
+			       ,ROUND((SELECT TO_NUMBER((SELECT COST FROM PAY WHERE PAY_NUM = #{pay_num}) 
+			       / (SELECT COUNT(MEM_JOIN_NUM) FROM MEM_PAY WHERE PAY_NUM = #{pay_num}))*(-1) AS "결제한 돈" FROM DUAL)) AS "PAYMONEY" 
+			  FROM MEM_PAY
+			  WHERE MEM_JOIN_NUM IN (SELECT MEM_JOIN_NUM FROM MEM_PAY WHERE PAY_NUM = #{pay_num})
+			) PAYMEM
+			FULL JOIN
+			( SELECT DISTINCT MEM_JOIN_NUM
+			       ,ROUND((SELECT TO_NUMBER((SELECT COST FROM PAY WHERE PAY_NUM = #{pay_num})
+			       / (SELECT COUNT(MEM_JOIN_NUM) FROM MEM_WITH WHERE PAY_NUM = #{pay_num})) AS "함께한 돈" FROM DUAL)) AS "WITHMONEY"
+			  FROM MEM_PAY
+			  WHERE MEM_JOIN_NUM IN (SELECT MEM_JOIN_NUM FROM MEM_WITH WHERE PAY_NUM = #{pay_num})
+			) WITHMEM
+			ON PAYMEM.MEM_JOIN_NUM = WITHMEM.MEM_JOIN_NUM
+			ORDER BY 1
+		)A
+		<![CDATA[WHERE TOTAL < 0 ]]>
+		
+	</select>
+	<select id="payNum" resultType="com.final1.logic.AccountDTO">
+		SELECT PAY_NUM FROM PAY WHERE ROOM_NUM = #{room_num}
+	</select>
+	
+	<select id="payMemJoin" resultType="com.final1.logic.AccountDTO">
+		SELECT MJ.MEM_JOIN_NUM,0 AS COST
+		FROM ONGOING OG JOIN MEM_JOIN MJ
+		ON og.mem_join_num = mj.mem_join_num
+		WHERE MJ.ROOM_NUM = #{room_num}
+		ORDER BY 1
+	</select>
+	
+	<select id="findNikname" resultType="String">
+		SELECT NIKNAME
+		FROM MEMBER
+		WHERE ID_NUM = #{id_num}
+	</select>
+	
+	
+	
+	
+	
+</mapper>

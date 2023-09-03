@@ -1,0 +1,14 @@
+@charset "UTF-8";
+
+.input-group 
+{
+	display: flex;
+	align-items: center;
+  	justify-content: flex-end; /* 오른쪽 정렬 추가 */
+}
+
+.input-container 
+{
+	display: flex;
+	align-items: center;
+}

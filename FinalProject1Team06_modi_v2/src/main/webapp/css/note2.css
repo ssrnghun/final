@@ -1,0 +1,52 @@
+@charset "UTF-8";
+
+html, body
+{
+    height: 100%;
+    overflow: hidden;
+
+}
+
+#bodyContainer
+{
+	height: 100%;
+    overflow: hidden;
+}
+
+#Note
+{
+	height: 100%;
+	background-color: black;
+}
+#wholeSched
+{
+	height: 100%;
+	border: solid black 10px;
+	position: relative;
+	overflow: auto;
+}
+
+#btnContainer
+{
+	border: solid red 10px;
+	text-align: center;
+	width: 100%;
+}
+
+
+#dropdownPart
+{
+	border: solid green 10px;
+	text-align: center;
+}
+
+#AllDay
+{
+	border: pink solid 10px;
+	height: 90%;
+}
+
+.daily
+{
+	border: purple;
+}

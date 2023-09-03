@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.final1.logic.IPersonalPageDAO">
+
+	<select id="etiCount" resultType="Integer" parameterType="com.final1.logic.MyPageDTO">
+		SELECT COUNT(*) AS COUNT
+		FROM ETIQUETTE_SCORE
+		WHERE GIVE_ID_NUM = (SELECT ID_NUM 
+		                    FROM MEMBER 
+		                    WHERE ID_NUM =(SELECT ID_NUM FROM MEM_REGI WHERE ID=#{id}))
+		AND TAKE_ID_NUM = (SELECT ID_NUM 
+		                    FROM MEMBER 
+		                    WHERE ID_NUM =(SELECT ID_NUM FROM MEM_REGI WHERE ID=#{etiId}))
+		AND TO_DATE(SCORE_DATE,'YYYY-MM-DD') = TO_DATE(SYSDATE,'YYYY-MM-DD')
+	</select>
+	
+	<insert id="etiScore" parameterType="com.final1.logic.MyPageDTO">
+		INSERT INTO ETIQUETTE_SCORE(ETIQUETTE_SCORE_NUM, GIVE_ID_NUM, TAKE_ID_NUM, SCORE_DATE
+		, SCORE)VALUES(CONCAT('ETI-',LPAD(ETI_SEQ.NEXTVAL,5,0)),(SELECT ID_NUM FROM MEM_REGI WHERE ID = #{id})
+		,(SELECT ID_NUM FROM MEM_REGI WHERE ID=#{etiId}), SYSDATE, #{score})
+	</insert>
+	
+	<insert id="pfReport1">
+		INSERT INTO PF_REPORT_RECEIPT(PF_REPORT_RECEIPT_NUM, REPORTER_ID_NUM, REPORTED_ID_NUM, REPORT_REASON_NUM
+		, CONTENT, REPORT_DATE, ALARM_CHECK_DATE)VALUES(CONCAT('PF-R-RC-', LPAD(PF_REPORT_RECEIPT_SEQ.NEXTVAL, 5, 0))
+		, (SELECT ID_NUM FROM MEM_REGI WHERE ID = #{reporterId}), (SELECT ID_NUM FROM MEM_REGI WHERE ID =#{reportedId})
+		, #{report_reason_num}, #{content},SYSDATE, NULL)
+	</insert>
+	
+	<insert id="block">
+		INSERT INTO MEM_BLOCK(MEM_BLOCK_NUM, BLOCKER_ID_NUM, BLOCKED_ID_NUM, BLOCK_DATE
+		, REASON) VALUES(CONCAT('BLOCK-',LPAD(BLOCK_SEQ.NEXTVAL,5,0)),(SELECT ID_NUM FROM MEM_REGI WHERE ID=#{blockerId})
+		,(SELECT ID_NUM FROM MEM_REGI WHERE ID=#{blockedId}), SYSDATE, #{reason})
+	</insert>
+	
+	<delete id="etiDel">
+		DELETE
+		FROM ETIQUETTE_SCORE
+		WHERE (GIVE_ID_NUM =(SELECT ID_NUM FROM MEM_REGI WHERE ID=#{blockedId} )
+		AND TAKE_ID_NUM = (SELECT ID_NUM FROM MEM_REGI WHERE ID=#{blockerId})) 
+		OR (GIVE_ID_NUM =(SELECT ID_NUM FROM MEM_REGI WHERE ID=#{blockerId} )
+		AND TAKE_ID_NUM = (SELECT ID_NUM FROM MEM_REGI WHERE ID=#{blockedId}))
+	</delete>
+	<delete id="tripDel">
+		DELETE
+		FROM TRIP_SCORE 
+		WHERE (GIVE_MEM_FINISH_NUM IN (SELECT MF.MEM_FINISH_NUM
+		                                FROM MEM_FINISH MF JOIN MEM_JOIN MJ
+		                                ON MF.MEM_JOIN_NUM = MJ.MEM_JOIN_NUM
+		                                JOIN TRIP_SCORE TS
+		                                ON TS.GIVE_MEM_FINISH_NUM = MF.MEM_FINISH_NUM
+		                                JOIN TRIP_SCORE TS
+		                                ON TS.TAKE_MEM_FINISH_NUM = MF.MEM_FINISH_NUM
+		                                JOIN MEM_REGI MR 
+		                                ON MR.ID_NUM = MJ.ID_NUM
+		                                WHERE ID = #{blockedId})
+		AND TAKE_MEM_FINISH_NUM IN (SELECT MF.MEM_FINISH_NUM
+		                                FROM MEM_FINISH MF JOIN MEM_JOIN MJ
+		                                ON MF.MEM_JOIN_NUM = MJ.MEM_JOIN_NUM
+		                                JOIN TRIP_SCORE TS
+		                                ON TS.GIVE_MEM_FINISH_NUM = MF.MEM_FINISH_NUM
+		                                JOIN TRIP_SCORE TS
+		                                ON TS.TAKE_MEM_FINISH_NUM = MF.MEM_FINISH_NUM
+		                                JOIN MEM_REGI MR 
+		                                ON MR.ID_NUM = MJ.ID_NUM
+		                                WHERE ID = #{blockerId}))
+		OR (GIVE_MEM_FINISH_NUM IN (SELECT MF.MEM_FINISH_NUM
+		                                FROM MEM_FINISH MF JOIN MEM_JOIN MJ
+		                                ON MF.MEM_JOIN_NUM = MJ.MEM_JOIN_NUM
+		                                JOIN TRIP_SCORE TS
+		                                ON TS.GIVE_MEM_FINISH_NUM = MF.MEM_FINISH_NUM
+		                                JOIN TRIP_SCORE TS
+		                                ON TS.TAKE_MEM_FINISH_NUM = MF.MEM_FINISH_NUM
+		                                JOIN MEM_REGI MR 
+		                                ON MR.ID_NUM = MJ.ID_NUM
+		                                WHERE ID = #{blockerId})
+		AND TAKE_MEM_FINISH_NUM IN (SELECT MF.MEM_FINISH_NUM
+		                                FROM MEM_FINISH MF JOIN MEM_JOIN MJ
+		                                ON MF.MEM_JOIN_NUM = MJ.MEM_JOIN_NUM
+		                                JOIN TRIP_SCORE TS
+		                                ON TS.GIVE_MEM_FINISH_NUM = MF.MEM_FINISH_NUM
+		                                JOIN TRIP_SCORE TS
+		                                ON TS.TAKE_MEM_FINISH_NUM = MF.MEM_FINISH_NUM
+		                                JOIN MEM_REGI MR 
+		                                ON MR.ID_NUM = MJ.ID_NUM
+		                                WHERE ID = #{blockedId}))
+	</delete>
+	
+	<!-- 추가 ★ -->
+	<!--  차단할 사람이 내가 참여중인 방에 함께 참여중인지 여부 확인-->
+	<select id="blockCheck" resultType="Integer">
+		SELECT COUNT(*) AS COUNT
+		FROM ONGOING O JOIN MEM_JOIN MJ
+		ON o.mem_join_num = mj.mem_join_num
+		WHERE ID_NUM= #{blockedIdNum}
+		AND ROOM_NUM IN (SELECT ROOM_NUM
+                         FROM ONGOING O JOIN MEM_JOIN MJ
+                         ON o.mem_join_num = mj.mem_join_num
+                         WHERE ID_NUM =#{blockerIdNum})
+	</select>
+
+</mapper>

@@ -1,0 +1,266 @@
+@charset "UTF-8";
+	
+	h1 { 
+		color: white;
+	 }
+	 
+	.search {
+	  position: relative;
+	  width: 800px;
+	  
+	}
+	
+	input {
+	  width: 100%;
+	  border: none; 
+	  border-radius: 45px;
+	  padding: 10px 12px;
+	  font-size: 14px;
+	  height: 60px;
+	  text-align: center;
+	  overflow: auto;
+	  z-index: -1;
+	  font-size: 100px;
+	}
+	
+	#btn_title {
+		position: absolute;
+		margin: 0;
+		background-color: #FF9966;
+		top : 10px;
+		left: 25px;
+		width: 80px;
+		height: 40px;
+		border-radius: 45px;
+	}
+	
+	#btn_make {
+		border-radius: 45px;
+		width : 150px; 
+		height: 40px;
+		border: solid 2px #E5E5E5;
+		background-color: orange;
+		color: white;
+	}
+	
+	#btn_maked
+	{
+		border-radius: 45px;
+		width : 1350px; 
+		height: 40px;
+		border: solid 2px #E5E5E5;
+		background-color: orange;
+		color: white;
+		
+	}
+	
+	#btn_div_make {
+		top: 0;
+		right : 50px;
+	}
+	
+	.bi-search {
+	  position : absolute;
+	  width: 17px;
+	  top: 5px;
+	  right: 50px;
+	  margin: 0;
+	  color: #B4B4B4;
+	  font-size: 30px;
+	}
+	
+	.bi-search:hover {
+  		 color : #FF9966;
+  	}
+  	
+  	.search_box:focus {outline: 2px solid #FFB895;}
+	
+	/* 부트스트랩 리스트 스타일 */
+	
+      .bd-placeholder-img {
+        font-size: 1.125rem;
+        text-anchor: middle;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        user-select: none;
+      }
+
+      @media (min-width: 768px) 
+      {
+        .bd-placeholder-img-lg 
+        {
+          font-size: 3.5rem;
+        }
+      }
+
+      .b-example-divider {
+        height: 3rem;
+        background-color: rgba(0, 0, 0, .1);
+        border: solid rgba(0, 0, 0, .15);
+        border-width: 1px 0;
+        box-shadow: inset 0 .5em 1.5em rgba(0, 0, 0, .1), inset 0 .125em .5em rgba(0, 0, 0, .15);
+      }
+
+      .b-example-vr {
+        flex-shrink: 0;
+        width: 1.5rem;
+        height: 100vh;
+      }
+
+      .bi {
+        vertical-align: -.125em;
+        
+      }
+
+      .nav-scroller {
+        position: relative;
+        z-index: 2;
+        height: 2.75rem;
+        overflow-y: hidden;
+      }
+
+      .nav-scroller .nav {
+        display: flex;
+        flex-wrap: nowrap;
+        padding-bottom: 1rem;
+        margin-top: -1px;
+        overflow-x: auto;
+        text-align: center;
+        white-space: nowrap;
+        -webkit-overflow-scrolling: touch;
+      }
+      
+
+      
+      
+ .test {
+        display: flex;
+        flex-direction: row;
+        gap: 10px; /* 버튼들 사이의 간격 설정, 원하는 만큼 조정 가능 */
+        text-align: center;
+        display: inline-block;
+        margin-top: 1vh;
+    }
+    
+    .test button {
+        flex-grow: 0;
+    }
+
+	.test3
+	{
+		text-align: center;
+		margin-top: 1vh;
+	}
+	
+	.test1
+	{
+		padding: 200px;
+	}
+	
+
+    .test3 button {
+        display: inline-block;
+    }
+
+	#icon
+	{
+		position: absolute;
+		left: 50px;
+		top: 280px;
+	}
+	
+	.user1
+	{
+		margin-left: 4.2vh;
+	}
+	
+	.other-div
+	{
+		position: absolute;
+		top: 342px;
+		left: 15.5px;
+		background-color: white;
+		width: 1888px;
+	 	height: 120px;
+	 	z-index: 1;
+	 	background-color: rgba(255,255,255,0.7);
+	}
+	
+	.moon
+	{
+		position: absolute;
+		top: 3px;
+		left: 65px;
+		display: flex;
+		justify-content: center;
+	}
+	
+	.moon1
+	{
+		margin-right: 10vh;
+	}
+	   
+	 .user1
+	 {
+	 	background-color: white; 
+	 	width: 100px; 
+	 	height: 115px; 
+	 	border-radius: 20%;
+	 }
+	 .moon2
+	 {
+	 	margin-left: 9.5vh;
+	 	margin-top: 4vh;
+	 }
+	 #btn_exit
+	 {
+	 	border-radius: 45px;
+		width : 150px; 
+		height: 40px;
+		border: solid 2px #E5E5E5;
+		background-color: white;
+		font-weight: bold;
+		
+	 }
+	 
+	 #Reader_mateBtn
+	 {
+	 	border-radius: 45px;
+	 	width: 60px;
+	 	height: 20px;
+	 	border: solid 2px #E5E5E5;
+	 	background-color: #666666;
+	 	font-weight: bold;
+	 	font-size: 12px;
+	 	text-align: center;
+	 	line-height: 6px;
+	 	font-family: Geogia;
+	 }
+	 
+	 #mateBtn
+	 {
+	 	border-radius: 45px;
+	 	width: 60px;
+	 	height: 20px;
+	 	border: solid 2px #E5E5E5;
+	 	background-color: white;
+	 	font-weight: bold;
+	 	font-size: 12px;
+	 	text-align: center;
+	 	line-height: 6px;
+	 	font-family: Geogia;
+	 }
+	 
+	 #Red_mateBtn
+	 {
+	 	border-radius: 45px;
+	 	width: 60px;
+	 	height: 20px;
+	 	border: solid 2px #E5E5E5;
+	 	background-color: #FF6666;
+	 	font-weight: bold;
+	 	font-size: 12px;
+	 	text-align: center;
+	 	line-height: 6px;
+	 	font-family: Geogia;
+	 }

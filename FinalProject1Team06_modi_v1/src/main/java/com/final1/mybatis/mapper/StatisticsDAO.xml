@@ -1,0 +1,398 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.final1.logic.IStatisticsDAO">
+
+	<select id="list1" resultType="com.final1.logic.StatisticsDTO">
+		SELECT NVL(TO_CHAR(B.TRIP_START_DATE,'YYYY'),'전체') AS year
+	     , COUNT(CASE WHEN EXTRACT(MONTH FROM B.TRIP_START_DATE) = 1 THEN 1 END) AS jan
+	     , COUNT(CASE WHEN EXTRACT(MONTH FROM B.TRIP_START_DATE) = 2 THEN 1 END) AS feb
+	     , COUNT(CASE WHEN EXTRACT(MONTH FROM B.TRIP_START_DATE) = 3 THEN 1 END) AS mar
+	     , COUNT(CASE WHEN EXTRACT(MONTH FROM B.TRIP_START_DATE) = 4 THEN 1 END) AS apr
+	     , COUNT(CASE WHEN EXTRACT(MONTH FROM B.TRIP_START_DATE) = 5 THEN 1 END) AS may
+	     , COUNT(CASE WHEN EXTRACT(MONTH FROM B.TRIP_START_DATE) = 6 THEN 1 END) AS jun
+	     , COUNT(CASE WHEN EXTRACT(MONTH FROM B.TRIP_START_DATE) = 7 THEN 1 END) AS jul
+	     , COUNT(CASE WHEN EXTRACT(MONTH FROM B.TRIP_START_DATE) = 8 THEN 1 END) AS aug
+	     , COUNT(CASE WHEN EXTRACT(MONTH FROM B.TRIP_START_DATE) = 9 THEN 1 END) AS sept
+	     , COUNT(CASE WHEN EXTRACT(MONTH FROM B.TRIP_START_DATE) = 10 THEN 1 END) AS oct
+	     , COUNT(CASE WHEN EXTRACT(MONTH FROM B.TRIP_START_DATE) = 11 THEN 1 END) AS nov
+	     , COUNT(CASE WHEN EXTRACT(MONTH FROM B.TRIP_START_DATE) = 12 THEN 1 END) AS dec
+		FROM BUILD_ROOM B
+		JOIN 
+		(
+		    SELECT ROOM_NUM AS RN 
+		    FROM MEM_JOIN MJ
+		    JOIN MEM_FINISH MF
+		    ON MJ.MEM_JOIN_NUM = MF.MEM_JOIN_NUM
+		    WHERE ID_NUM = (SELECT ID_NUM
+		                    FROM MEM_REGI 
+		                    WHERE ID = #{id})
+		) A ON B.ROOM_NUM = A.RN
+		GROUP BY TO_CHAR(B.TRIP_START_DATE,'YYYY')
+	</select>
+	
+	<select id="list2" resultType="com.final1.logic.StatisticsDTO">
+	SELECT NVL(YEAR,-1) AS YEAR, "서울" AS seoul, "부산" AS busan, "인천" AS incheon, "대구" AS daegu
+	, "충북" AS choongbuk, "대전" AS daejeon, "광주" AS gwangju, "울산" AS ulsan, "세종" AS sejong
+	, "경기" AS gyeongi, "충남" AS choongnam, "전북" AS jeonbuk, "전남" AS jeonnam, "경북" AS gyeongbuk
+	, "경남" AS gyeongnam, "강원" AS gangwon, "제주" AS jeju
+	FROM
+	(
+	    SELECT EXTRACT(YEAR FROM B.TRIP_START_DATE) AS YEAR
+	         , SUM(CASE WHEN A.AREA_NUM = 1 THEN 1 ELSE 0 END) AS "서울"
+	         , SUM(CASE WHEN A.AREA_NUM = 2 THEN 1 ELSE 0 END) AS "부산"
+	         , SUM(CASE WHEN A.AREA_NUM = 3 THEN 1 ELSE 0 END) AS "인천"
+	         , SUM(CASE WHEN A.AREA_NUM = 4 THEN 1 ELSE 0 END) AS "대구"
+	         , SUM(CASE WHEN A.AREA_NUM = 5 THEN 1 ELSE 0 END) AS "대전"
+	         , SUM(CASE WHEN A.AREA_NUM = 6 THEN 1 ELSE 0 END) AS "광주"
+	         , SUM(CASE WHEN A.AREA_NUM = 7 THEN 1 ELSE 0 END) AS "울산"
+	         , SUM(CASE WHEN A.AREA_NUM = 8 THEN 1 ELSE 0 END) AS "세종"
+	         , SUM(CASE WHEN A.AREA_NUM = 9 THEN 1 ELSE 0 END) AS "경기"
+	         , SUM(CASE WHEN A.AREA_NUM = 10 THEN 1 ELSE 0 END) AS "충북"
+	         , SUM(CASE WHEN A.AREA_NUM = 11 THEN 1 ELSE 0 END) AS "충남"
+	         , SUM(CASE WHEN A.AREA_NUM = 12 THEN 1 ELSE 0 END) AS "전북"
+	         , SUM(CASE WHEN A.AREA_NUM = 13 THEN 1 ELSE 0 END) AS "전남"
+	         , SUM(CASE WHEN A.AREA_NUM = 14 THEN 1 ELSE 0 END) AS "경북"
+	         , SUM(CASE WHEN A.AREA_NUM = 15 THEN 1 ELSE 0 END) AS "경남"
+	         , SUM(CASE WHEN A.AREA_NUM = 16 THEN 1 ELSE 0 END) AS "강원"
+	         , SUM(CASE WHEN A.AREA_NUM = 17 THEN 1 ELSE 0 END) AS "제주"
+	    FROM BUILD_ROOM B 
+	    JOIN REGION R
+	    ON R.REGION_NUM = B.REGION_NUM
+	    JOIN AREA A
+	    ON R.AREA_NUM = A.AREA_NUM
+	    WHERE B.ROOM_NUM IN (SELECT MJ.ROOM_NUM 
+	                         FROM MEM_JOIN MJ JOIN MEM_FINISH MF
+	                         ON MJ.MEM_JOIN_NUM = MF.MEM_JOIN_NUM
+	                         WHERE ID_NUM= (SELECT ID_NUM
+	                                        FROM MEM_REGI
+	                                        WHERE ID=#{id}))
+	    GROUP BY EXTRACT(YEAR FROM B.TRIP_START_DATE)
+	) V
+	ORDER BY YEAR DESC
+	</select>
+	
+	<select id="plan" resultType="com.final1.logic.StatisticsDTO">
+	SELECT "완벽한 계획" AS PLAN1
+     , "대략적인 계획" AS PLAN2
+     , "계획 없음" AS PLAN3
+     , "무관" AS PLAN4
+	FROM
+	(
+	    SELECT EXTRACT(YEAR FROM TRIP_START_DATE) AS YEAR
+	         , SUM(CASE WHEN PLAN_NUM = 1 THEN 1 ELSE 0 END) AS "완벽한 계획"
+	         , SUM(CASE WHEN PLAN_NUM = 2 THEN 1 ELSE 0 END) AS "대략적인 계획"
+	         , SUM(CASE WHEN PLAN_NUM = 3 THEN 1 ELSE 0 END) AS "계획 없음"
+	         , SUM(CASE WHEN PLAN_NUM = 4 THEN 1 ELSE 0 END) AS "무관"
+	    FROM BUILD_ROOM
+	    WHERE ROOM_NUM IN (SELECT MJ.ROOM_NUM   
+	                         FROM MEM_JOIN MJ JOIN MEM_FINISH MF
+	                         ON MJ.MEM_JOIN_NUM = MF.MEM_JOIN_NUM
+	                         WHERE ID_NUM= (SELECT ID_NUM
+	                                        FROM MEM_REGI
+	                                        WHERE ID=#{id}))
+	    GROUP BY ROLLUP(EXTRACT(YEAR FROM TRIP_START_DATE))
+	) V
+	WHERE YEAR IS NULL
+	</select>
+	
+	<select id="moneyoption" resultType="com.final1.logic.StatisticsDTO">
+	SELECT "N분의 1" AS moneyoption1
+     , "각자 계산" AS moneyoption2
+     , "후청구" AS moneyoption3
+     , "무관" AS moneyoption4
+	FROM
+	(
+	    SELECT EXTRACT(YEAR FROM TRIP_START_DATE) AS YEAR
+	         , SUM(CASE WHEN MONEY_OPTION_NUM = 1 THEN 1 ELSE 0 END) AS "N분의 1"
+	         , SUM(CASE WHEN MONEY_OPTION_NUM = 2 THEN 1 ELSE 0 END) AS "각자 계산"
+	         , SUM(CASE WHEN MONEY_OPTION_NUM = 3 THEN 1 ELSE 0 END) AS "후청구"
+	         , SUM(CASE WHEN MONEY_OPTION_NUM = 4 THEN 1 ELSE 0 END) AS "무관"
+	    FROM BUILD_ROOM 
+	    WHERE ROOM_NUM IN (SELECT MJ.ROOM_NUM   
+	                         FROM MEM_JOIN MJ JOIN MEM_FINISH MF
+	                         ON MJ.MEM_JOIN_NUM = MF.MEM_JOIN_NUM
+	                         WHERE ID_NUM= (SELECT ID_NUM
+	                                        FROM MEM_REGI
+	                                        WHERE ID=#{id}))
+	    GROUP BY ROLLUP(EXTRACT(YEAR FROM TRIP_START_DATE))
+	) V
+	WHERE YEAR IS NULL
+	</select>
+	
+	<select id="staytype" resultType="com.final1.logic.StatisticsDTO">
+	SELECT "리조트" AS STAYTYPE1
+     , "호텔" AS STAYTYPE2
+     , "호스텔" AS STAYTYPE3
+     , "민박" AS STAYTYPE4
+     , "무관" AS STAYTYPE5
+	FROM
+	(
+	    SELECT EXTRACT(YEAR FROM TRIP_START_DATE) AS YEAR
+	         , SUM(CASE WHEN STAY_TYPE_NUM = 1 THEN 1 ELSE 0 END) AS "리조트"
+	         , SUM(CASE WHEN STAY_TYPE_NUM = 2 THEN 1 ELSE 0 END) AS "호텔"
+	         , SUM(CASE WHEN STAY_TYPE_NUM = 3 THEN 1 ELSE 0 END) AS "호스텔"
+	         , SUM(CASE WHEN STAY_TYPE_NUM = 4 THEN 1 ELSE 0 END) AS "민박"
+	         , SUM(CASE WHEN STAY_TYPE_NUM = 5 THEN 1 ELSE 0 END) AS "무관"
+	    FROM BUILD_ROOM
+	    WHERE ROOM_NUM IN (SELECT MJ.ROOM_NUM   
+	                         FROM MEM_JOIN MJ JOIN MEM_FINISH MF
+	                         ON MJ.MEM_JOIN_NUM = MF.MEM_JOIN_NUM
+	                         WHERE ID_NUM= (SELECT ID_NUM
+	                                        FROM MEM_REGI
+	                                        WHERE ID=#{id}))
+	    GROUP BY ROLLUP(EXTRACT(YEAR FROM TRIP_START_DATE))
+	) V
+	WHERE YEAR IS NULL
+	</select>
+	
+	<select id="traffic" resultType="com.final1.logic.StatisticsDTO">
+	SELECT "렌트" AS TRAFFIC1
+     , "뚜벅이선호" AS TRAFFIC2
+     , "대중교통" AS TRAFFIC3
+     , "무관" AS TRAFFIC4
+	FROM
+	(
+	    SELECT EXTRACT(YEAR FROM TRIP_START_DATE) AS YEAR
+	         , SUM(CASE WHEN TRAFFIC_NUM = 1 THEN 1 ELSE 0 END) AS "렌트"
+	         , SUM(CASE WHEN TRAFFIC_NUM = 2 THEN 1 ELSE 0 END) AS "뚜벅이선호"
+	         , SUM(CASE WHEN TRAFFIC_NUM = 3 THEN 1 ELSE 0 END) AS "대중교통"
+	         , SUM(CASE WHEN TRAFFIC_NUM = 4 THEN 1 ELSE 0 END) AS "무관"
+	    FROM BUILD_ROOM 
+	    WHERE ROOM_NUM IN (SELECT MJ.ROOM_NUM   
+	                         FROM MEM_JOIN MJ JOIN MEM_FINISH MF
+	                         ON MJ.MEM_JOIN_NUM = MF.MEM_JOIN_NUM
+	                         WHERE ID_NUM= (SELECT ID_NUM
+	                                        FROM MEM_REGI
+	                                        WHERE ID=#{id}))
+	    GROUP BY ROLLUP(EXTRACT(YEAR FROM TRIP_START_DATE))
+	) V
+	WHERE YEAR IS NULL
+	</select>
+	
+	<select id="cycle" resultType="com.final1.logic.StatisticsDTO">
+	SELECT "늦은 취침, 늦은 기상" AS CYCLE1
+     , "이른 취침, 이른 기상" AS CYCLE2
+     , "무관" AS CYCLE3
+	FROM
+	(
+	    SELECT EXTRACT(YEAR FROM TRIP_START_DATE) AS YEAR
+	         , SUM(CASE WHEN CYCLE_NUM = 1 THEN 1 ELSE 0 END) AS "늦은 취침, 늦은 기상"
+	         , SUM(CASE WHEN CYCLE_NUM = 2 THEN 1 ELSE 0 END) AS "이른 취침, 이른 기상"
+	         , SUM(CASE WHEN CYCLE_NUM = 3 THEN 1 ELSE 0 END) AS "무관"
+	    FROM BUILD_ROOM 
+	    WHERE ROOM_NUM IN (SELECT MJ.ROOM_NUM   
+	                         FROM MEM_JOIN MJ JOIN MEM_FINISH MF
+	                         ON MJ.MEM_JOIN_NUM = MF.MEM_JOIN_NUM
+	                         WHERE ID_NUM= (SELECT ID_NUM
+	                                        FROM MEM_REGI
+	                                        WHERE ID=#{id}))
+	    GROUP BY ROLLUP(EXTRACT(YEAR FROM TRIP_START_DATE))
+	) V
+	WHERE YEAR IS NULL
+	</select>
+	
+	<select id="pace" resultType="com.final1.logic.StatisticsDTO">
+	SELECT "느긋함 선호" AS PACE1
+     , "촘촘한 일정 선호" AS PACE2
+     , "무관" AS PACE3
+	FROM
+	(
+	    SELECT EXTRACT(YEAR FROM TRIP_START_DATE) AS YEAR
+	         , SUM(CASE WHEN PACE_NUM = 1 THEN 1 ELSE 0 END) AS "느긋함 선호"
+	         , SUM(CASE WHEN PACE_NUM = 2 THEN 1 ELSE 0 END) AS "촘촘한 일정 선호"
+	         , SUM(CASE WHEN PACE_NUM = 3 THEN 1 ELSE 0 END) AS "무관"
+	    FROM BUILD_ROOM 
+	    WHERE ROOM_NUM IN (SELECT MJ.ROOM_NUM   
+	                         FROM MEM_JOIN MJ JOIN MEM_FINISH MF
+	                         ON MJ.MEM_JOIN_NUM = MF.MEM_JOIN_NUM
+	                         WHERE ID_NUM= (SELECT ID_NUM
+	                                        FROM MEM_REGI
+	                                        WHERE ID=#{id}))
+	    GROUP BY ROLLUP(EXTRACT(YEAR FROM TRIP_START_DATE))
+	) V
+	WHERE YEAR IS NULL
+	</select>
+	
+	<select id="desti" resultType="com.final1.logic.StatisticsDTO">
+	SELECT "자연" AS DESTI1
+     , "도시" AS DESTI2
+     , "휴양지" AS DESTI3
+     , "역사유적지" AS DESTI4
+     , "무관" AS DESTI5
+	FROM
+	(
+	    SELECT EXTRACT(YEAR FROM TRIP_START_DATE) AS YEAR
+	         , SUM(CASE WHEN DESTI_TYPE_NUM = 1 THEN 1 ELSE 0 END) AS "자연"
+	         , SUM(CASE WHEN DESTI_TYPE_NUM = 2 THEN 1 ELSE 0 END) AS "도시"
+	         , SUM(CASE WHEN DESTI_TYPE_NUM = 3 THEN 1 ELSE 0 END) AS "휴양지"
+	         , SUM(CASE WHEN DESTI_TYPE_NUM = 4 THEN 1 ELSE 0 END) AS "역사유적지"
+	         , SUM(CASE WHEN DESTI_TYPE_NUM = 5 THEN 1 ELSE 0 END) AS "무관"
+	    FROM BUILD_ROOM 
+	    WHERE ROOM_NUM IN (SELECT MJ.ROOM_NUM   
+	                         FROM MEM_JOIN MJ JOIN MEM_FINISH MF
+	                         ON MJ.MEM_JOIN_NUM = MF.MEM_JOIN_NUM
+	                         WHERE ID_NUM= (SELECT ID_NUM
+	                                        FROM MEM_REGI
+	                                        WHERE ID=#{id}))
+	    GROUP BY ROLLUP(EXTRACT(YEAR FROM TRIP_START_DATE))
+	) V
+	WHERE YEAR IS NULL
+	</select>
+	
+	<select id="todo" resultType="com.final1.logic.StatisticsDTO">
+	SELECT "휴식" AS TODO1
+     , "쇼핑" AS TODO2
+     , "액티비티" AS TODO3
+     , "여행영상 촬영" AS TODO4
+     , "맛집탐방" AS TODO5
+     , "새친구 만들기" AS TODO6
+     , "무관" AS TODO7
+	FROM
+	(
+	    SELECT EXTRACT(YEAR FROM TRIP_START_DATE) AS YEAR
+	         , SUM(CASE WHEN TO_DO_NUM = 1 THEN 1 ELSE 0 END) AS "휴식"
+	         , SUM(CASE WHEN TO_DO_NUM = 2 THEN 1 ELSE 0 END) AS "쇼핑"
+	         , SUM(CASE WHEN TO_DO_NUM = 3 THEN 1 ELSE 0 END) AS "액티비티"
+	         , SUM(CASE WHEN TO_DO_NUM = 4 THEN 1 ELSE 0 END) AS "여행영상 촬영"
+	         , SUM(CASE WHEN TO_DO_NUM = 5 THEN 1 ELSE 0 END) AS "맛집탐방"
+	         , SUM(CASE WHEN TO_DO_NUM = 6 THEN 1 ELSE 0 END) AS "새친구 만들기"
+	         , SUM(CASE WHEN TO_DO_NUM = 7 THEN 1 ELSE 0 END) AS "무관"
+	    FROM BUILD_ROOM 
+	    WHERE ROOM_NUM IN (SELECT MJ.ROOM_NUM   
+	                         FROM MEM_JOIN MJ JOIN MEM_FINISH MF
+	                         ON MJ.MEM_JOIN_NUM = MF.MEM_JOIN_NUM
+	                         WHERE ID_NUM= (SELECT ID_NUM
+	                                        FROM MEM_REGI
+	                                        WHERE ID=#{id}))
+	    GROUP BY ROLLUP(EXTRACT(YEAR FROM TRIP_START_DATE))
+	) V
+	WHERE YEAR IS NULL
+	</select>
+	
+	<select id="tosee" resultType="com.final1.logic.StatisticsDTO">
+	SELECT "역사" AS TOSEE1
+     , "예술" AS TOSEE2
+     , "문화" AS TOSEE3
+     , "자연경관" AS TOSEE4
+     , "무관" AS TOSEE5
+	FROM
+	(
+	    SELECT EXTRACT(YEAR FROM TRIP_START_DATE) AS YEAR
+	         , SUM(CASE WHEN TO_SEE_NUM = 1 THEN 1 ELSE 0 END) AS "역사"
+	         , SUM(CASE WHEN TO_SEE_NUM = 2 THEN 1 ELSE 0 END) AS "예술"
+	         , SUM(CASE WHEN TO_SEE_NUM = 3 THEN 1 ELSE 0 END) AS "문화"
+	         , SUM(CASE WHEN TO_SEE_NUM = 4 THEN 1 ELSE 0 END) AS "자연경관"
+	         , SUM(CASE WHEN TO_SEE_NUM = 5 THEN 1 ELSE 0 END) AS "무관"
+	    FROM BUILD_ROOM 
+	    WHERE ROOM_NUM IN (SELECT MJ.ROOM_NUM   
+	                         FROM MEM_JOIN MJ JOIN MEM_FINISH MF
+	                         ON MJ.MEM_JOIN_NUM = MF.MEM_JOIN_NUM
+	                         WHERE ID_NUM= (SELECT ID_NUM
+	                                        FROM MEM_REGI
+	                                        WHERE ID=#{id}))
+	    GROUP BY ROLLUP(EXTRACT(YEAR FROM TRIP_START_DATE))
+	) V
+	WHERE YEAR IS NULL
+	</select>
+	
+	<select id="food" resultType="com.final1.logic.StatisticsDTO">
+	SELECT "SNS 맛집" AS FOOD1
+     , "현지인맛집" AS FOOD2
+     , "지역특산물 위주" AS FOOD3
+     , "즉흥적으로" AS FOOD4
+     , "무관" AS FOOD5
+	FROM
+	(
+	    SELECT EXTRACT(YEAR FROM TRIP_START_DATE) AS YEAR
+	         , SUM(CASE WHEN FOOD_NUM = 1 THEN 1 ELSE 0 END) AS "SNS 맛집"
+	         , SUM(CASE WHEN FOOD_NUM = 2 THEN 1 ELSE 0 END) AS "현지인맛집"
+	         , SUM(CASE WHEN FOOD_NUM = 3 THEN 1 ELSE 0 END) AS "지역특산물 위주"
+	         , SUM(CASE WHEN FOOD_NUM = 4 THEN 1 ELSE 0 END) AS "즉흥적으로"
+	         , SUM(CASE WHEN FOOD_NUM = 5 THEN 1 ELSE 0 END) AS "무관"
+	    FROM BUILD_ROOM
+	    WHERE ROOM_NUM IN (SELECT MJ.ROOM_NUM   
+	                         FROM MEM_JOIN MJ JOIN MEM_FINISH MF
+	                         ON MJ.MEM_JOIN_NUM = MF.MEM_JOIN_NUM
+	                         WHERE ID_NUM= (SELECT ID_NUM
+	                                        FROM MEM_REGI
+	                                        WHERE ID=#{id}))
+	    GROUP BY ROLLUP(EXTRACT(YEAR FROM TRIP_START_DATE))
+	) V
+	WHERE YEAR IS NULL
+	</select>
+	
+	<select id="mealcount" resultType="com.final1.logic.StatisticsDTO">
+	SELECT "자주, 적게" AS MEALCOUNT1
+     , "한번에 많이" AS MEALCOUNT2
+     , "다이어트" AS MEALCOUNT3
+     , "무관" AS MEALCOUNT4
+	FROM
+	(
+	    SELECT EXTRACT(YEAR FROM TRIP_START_DATE) AS YEAR
+	         , SUM(CASE WHEN MEAL_COUNT_NUM = 1 THEN 1 ELSE 0 END) AS "자주, 적게"
+	         , SUM(CASE WHEN MEAL_COUNT_NUM = 2 THEN 1 ELSE 0 END) AS "한번에 많이"
+	         , SUM(CASE WHEN MEAL_COUNT_NUM = 3 THEN 1 ELSE 0 END) AS "다이어트"
+	         , SUM(CASE WHEN MEAL_COUNT_NUM = 4 THEN 1 ELSE 0 END) AS "무관"
+	    FROM BUILD_ROOM 
+	    WHERE ROOM_NUM IN (SELECT MJ.ROOM_NUM   
+	                         FROM MEM_JOIN MJ JOIN MEM_FINISH MF
+	                         ON MJ.MEM_JOIN_NUM = MF.MEM_JOIN_NUM
+	                         WHERE ID_NUM= (SELECT ID_NUM
+	                                        FROM MEM_REGI
+	                                        WHERE ID=#{id}))
+	    GROUP BY ROLLUP(EXTRACT(YEAR FROM TRIP_START_DATE))
+	) V
+	WHERE YEAR IS NULL
+	</select>
+	
+	<select id="supply" resultType="com.final1.logic.StatisticsDTO">
+	SELECT "모두 챙김" AS SUPPLY1
+     , "반반" AS SUPPLY2
+     , "현지조달" AS SUPPLY3
+     , "무관" AS SUPPLY4
+	FROM
+	(
+	    SELECT EXTRACT(YEAR FROM TRIP_START_DATE) AS YEAR
+	         , SUM(CASE WHEN SUPPLY_NUM = 1 THEN 1 ELSE 0 END) AS "모두 챙김"
+	         , SUM(CASE WHEN SUPPLY_NUM = 2 THEN 1 ELSE 0 END) AS "반반"
+	         , SUM(CASE WHEN SUPPLY_NUM = 3 THEN 1 ELSE 0 END) AS "현지조달"
+	         , SUM(CASE WHEN SUPPLY_NUM = 4 THEN 1 ELSE 0 END) AS "무관"
+	    FROM BUILD_ROOM 
+	    WHERE ROOM_NUM IN (SELECT MJ.ROOM_NUM   
+	                         FROM MEM_JOIN MJ JOIN MEM_FINISH MF
+	                         ON MJ.MEM_JOIN_NUM = MF.MEM_JOIN_NUM
+	                         WHERE ID_NUM= (SELECT ID_NUM
+	                                        FROM MEM_REGI
+	                                        WHERE ID=#{id}))
+	    GROUP BY ROLLUP(EXTRACT(YEAR FROM TRIP_START_DATE))
+	) V
+	WHERE YEAR IS NULL
+	</select>
+	
+	<select id="photo" resultType="com.final1.logic.StatisticsDTO">
+	SELECT "인생샷을 위해" AS PHOTO1
+     , "대충 흔적만" AS PHOTO2
+     , "풍경 위주" AS PHOTO3
+     , "무관" AS PHOTO4
+	FROM
+	(
+	    SELECT EXTRACT(YEAR FROM TRIP_START_DATE) AS YEAR
+	         , SUM(CASE WHEN PHOTO_NUM = 1 THEN 1 ELSE 0 END) AS "인생샷을 위해"
+	         , SUM(CASE WHEN PHOTO_NUM = 2 THEN 1 ELSE 0 END) AS "대충 흔적만"
+	         , SUM(CASE WHEN PHOTO_NUM = 3 THEN 1 ELSE 0 END) AS "풍경 위주"
+	         , SUM(CASE WHEN PHOTO_NUM = 4 THEN 1 ELSE 0 END) AS "무관"
+	    FROM BUILD_ROOM 
+	    WHERE ROOM_NUM IN (SELECT MJ.ROOM_NUM   
+	                         FROM MEM_JOIN MJ JOIN MEM_FINISH MF
+	                         ON MJ.MEM_JOIN_NUM = MF.MEM_JOIN_NUM
+	                         WHERE ID_NUM= (SELECT ID_NUM
+	                                        FROM MEM_REGI
+	                                        WHERE ID=#{id}))
+	    GROUP BY ROLLUP(EXTRACT(YEAR FROM TRIP_START_DATE))
+	) V
+	WHERE YEAR IS NULL
+	</select>
+
+</mapper>

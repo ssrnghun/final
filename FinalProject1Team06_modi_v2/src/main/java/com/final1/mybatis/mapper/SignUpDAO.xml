@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.final1.logic.ISignUpDAO">
+		
+	<insert id="memberRegi">
+		INSERT INTO MEM_REGI(ID_NUM,ID)
+		VALUES(CONCAT('ID-',LPAD(MEM_REGI_SEQ.NEXTVAL,5,0)),#{id})
+	</insert>
+	
+	<insert id="memberAdd">
+		INSERT INTO MEMBER(MEM_NUM, ID_NUM, NAME, NIKNAME, PW, SSN, PHOTO, INTRODUCE)
+		VALUES(CONCAT('MEM-', LPAD(MEMBER_SEQ.NEXTVAL, 5, 0)), #{idNum}, #{name}, #{nickName}, CRYPTPACK.ENCRYPT(#{pw}, #{pw}), #{ssn}, 'images/non_profile.jpg', #{introduce})
+	</insert>
+	
+	<select id="searchId" resultType="java.lang.String">
+		SELECT ID_NUM
+		FROM MEM_REGI
+		WHERE ID = #{id}
+	</select>
+	
+	<select id="ssnCheck" resultType="java.lang.Integer">
+		SELECT COUNT(*) AS COUNT
+        FROM MEMBER 
+        WHERE SSN= #{ssn}
+	</select>
+	
+</mapper>
