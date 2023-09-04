@@ -58,6 +58,7 @@ public class AccountController
 			model.addAttribute("accountList", dao.AccountList(room_num));
 			model.addAttribute("cost",dao.totalCost(room_num));
 		}
+		System.out.println("성공???");
 		
 		result = "AccountBook.jsp";
 		
